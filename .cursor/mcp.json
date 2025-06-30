@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest"
+      ],
+      "env": {
+        "SUPABASE_URL": "https://ikbjaqdnsvxmjckihtih.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYmphcWRuc3Z4bWpja2lodGloIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTIyNzIzNCwiZXhwIjoyMDY2ODAzMjM0fQ.HySLQR5S6Q2C4jleUvEOd4KtC5z6Rwuc0VsIYW6QKkg",
+        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYmphcWRuc3Z4bWpja2lodGloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyMjcyMzQsImV4cCI6MjA2NjgwMzIzNH0.EUbUcsH7XRUrTR6KR7qYbxKwLzIS3A2aR2g4YOcdFCk",
+        "SUPABASE_ACCESS_TOKEN": "sbp_cab8d03af039015caf8befcba6526061e5a13b1a"
+      }
+    }
+  }
+}
