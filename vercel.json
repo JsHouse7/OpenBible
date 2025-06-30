@@ -1,0 +1,48 @@
+{
+  "rewrites": [
+    {
+      "source": "/dashboard",
+      "destination": "/"
+    },
+    {
+      "source": "/bible",
+      "destination": "/"
+    },
+    {
+      "source": "/reader",
+      "destination": "/"
+    },
+    {
+      "source": "/notes",
+      "destination": "/"
+    },
+    {
+      "source": "/bookmarks",
+      "destination": "/"
+    },
+    {
+      "source": "/highlights",
+      "destination": "/"
+    },
+    {
+      "source": "/progress",
+      "destination": "/"
+    },
+    {
+      "source": "/plans",
+      "destination": "/"
+    },
+    {
+      "source": "/literature",
+      "destination": "/"
+    },
+    {
+      "source": "/settings",
+      "destination": "/"
+    },
+    {
+      "source": "/profile",
+      "destination": "/"
+    }
+  ]
+} 
