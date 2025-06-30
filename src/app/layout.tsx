@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { UserPreferencesProvider } from "@/components/UserPreferencesProvider";
+import { BibleVersionProvider } from "@/components/BibleVersionProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -20,9 +23,17 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.className}>
       <body className="bg-background text-foreground antialiased">
-        <main className="min-h-screen">
-          {children}
-        </main>
+        <ThemeProvider
+          defaultTheme="system"
+        >
+          <UserPreferencesProvider>
+            <BibleVersionProvider>
+              <main className="min-h-screen">
+                {children}
+              </main>
+            </BibleVersionProvider>
+          </UserPreferencesProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
