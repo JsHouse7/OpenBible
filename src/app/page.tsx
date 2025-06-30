@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useUserPreferences } from '@/components/UserPreferencesProvider'
-import { ThemeProvider } from '@/components/ThemeProvider'
-import { UserPreferencesProvider } from '@/components/UserPreferencesProvider'
 import EnhancedNavigation from '@/components/EnhancedNavigation'
 import Dashboard from '@/components/Dashboard'
 import { BibleReader } from '@/components/BibleReader'
@@ -15,12 +13,11 @@ import BookmarksPage from '@/components/BookmarksPage'
 // import HighlightsPage from '@/components/HighlightsPage'
 // import ProgressPage from '@/components/ProgressPage'
 // import ReadingPlansPage from '@/components/ReadingPlansPage'
-import { Navigation } from '@/components/Navigation'
 import Settings from '@/components/Settings'
 import ProfilePage from '@/components/ProfilePage'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
 
-const OpenBibleAppInner = () => {
+export default function OpenBibleApp() {
   const { getHomePage } = useUserPreferences()
   const [currentPage, setCurrentPage] = useState('dashboard')
   const [selectedBook, setSelectedBook] = useState('John')
@@ -64,8 +61,6 @@ const OpenBibleAppInner = () => {
                 onClose={() => setShowChapterSelector(false)}
               />
             )}
-
-
 
             {/* Bible Reader Component */}
             <BibleReader 
@@ -154,15 +149,3 @@ const OpenBibleAppInner = () => {
     </div>
   )
 }
-
-const OpenBibleApp = () => {
-  return (
-    <ThemeProvider defaultTheme="system" storageKey="openbible-theme">
-      <UserPreferencesProvider>
-        <OpenBibleAppInner />
-      </UserPreferencesProvider>
-    </ThemeProvider>
-  )
-}
-
-export default OpenBibleApp
