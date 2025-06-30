@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "src/app/**": {
+      "runtime": "@vercel/next"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/((?!api|_next|_static|favicon.ico).*)",
+      "destination": "/"
+    }
+  ]
+} 
