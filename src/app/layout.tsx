@@ -20,6 +20,15 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Debug logging
+  if (typeof window !== 'undefined') {
+    console.log('🚀 CLIENT: Layout rendering');
+    console.log('🌐 Current URL:', window.location.href);
+    console.log('📍 Pathname:', window.location.pathname);
+  } else {
+    console.log('🖥️ SERVER: Layout rendering');
+  }
+
   return (
     <html lang="en" className={inter.className}>
       <body className="bg-background text-foreground antialiased">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Dashboard from '@/components/Dashboard'
 import { BibleReader } from '@/components/BibleReader'
 import NotesPage from '@/components/NotesPage'
@@ -19,21 +19,41 @@ export default function HomePage() {
   const [currentChapter, setCurrentChapter] = useState(3)
   const isMobile = useIsMobile()
 
+  // Debug logging
+  useEffect(() => {
+    console.log('📱 HomePage mounted');
+    console.log('🔧 Current page state:', currentPage);
+    console.log('📖 Current book:', currentBook, 'Chapter:', currentChapter);
+    console.log('📱 Is mobile:', isMobile);
+    
+    // Check if we're on the correct path
+    if (typeof window !== 'undefined') {
+      console.log('🌍 Window location:', window.location.href);
+      console.log('🛣️ Pathname:', window.location.pathname);
+      console.log('🔍 Search params:', window.location.search);
+    }
+  }, [currentPage, currentBook, currentChapter, isMobile])
+
   const handleNavigation = (page: string) => {
+    console.log('🧭 Navigating to:', page);
     setCurrentPage(page)
   }
 
   const handleBookChange = (book: string) => {
+    console.log('📚 Book changed to:', book);
     setCurrentBook(book)
     setCurrentPage('reader')
   }
 
   const handleChapterChange = (chapter: number) => {
+    console.log('📄 Chapter changed to:', chapter);
     setCurrentChapter(chapter)
     setCurrentPage('reader')
   }
 
   const renderPage = () => {
+    console.log('🎬 Rendering page:', currentPage);
+    
     switch (currentPage) {
       case 'dashboard':
         return (
@@ -67,6 +87,7 @@ export default function HomePage() {
       case 'profile':
         return <ProfilePage />
       default:
+        console.log('⚠️ Unknown page, defaulting to dashboard:', currentPage);
         return (
           <Dashboard 
             onNavigate={handleNavigation}
@@ -74,6 +95,8 @@ export default function HomePage() {
         )
     }
   }
+
+  console.log('🖼️ About to render HomePage with navigation');
 
   return (
     <div className="min-h-screen bg-background">
