@@ -31,24 +31,33 @@ const UserPreferencesContext = createContext<UserPreferencesContextType | undefi
 
 export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences)
+  const [isLoaded, setIsLoaded] = useState(false)
 
-  // Load preferences from localStorage on mount
+  // Load preferences from localStorage only on client side
   useEffect(() => {
-    const savedPreferences = localStorage.getItem('userPreferences')
-    if (savedPreferences) {
-      try {
+    try {
+      const savedPreferences = localStorage.getItem('userPreferences')
+      if (savedPreferences) {
         const parsed = JSON.parse(savedPreferences)
         setPreferences({ ...defaultPreferences, ...parsed })
-      } catch (error) {
-        console.error('Failed to parse saved preferences:', error)
       }
+    } catch (error) {
+      console.error('Failed to parse saved preferences:', error)
+    } finally {
+      setIsLoaded(true)
     }
   }, [])
 
-  // Save preferences to localStorage whenever they change
+  // Save preferences to localStorage whenever they change (only after initial load)
   useEffect(() => {
-    localStorage.setItem('userPreferences', JSON.stringify(preferences))
-  }, [preferences])
+    if (isLoaded) {
+      try {
+        localStorage.setItem('userPreferences', JSON.stringify(preferences))
+      } catch (error) {
+        console.error('Failed to save preferences:', error)
+      }
+    }
+  }, [preferences, isLoaded])
 
   const updatePreferences = (newPreferences: Partial<UserPreferences>) => {
     setPreferences(prev => ({ ...prev, ...newPreferences }))

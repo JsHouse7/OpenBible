@@ -104,26 +104,39 @@ const availableVersions: BibleVersion[] = [
   }
 ]
 
-export function BibleVersionProvider({ children }: { children: React.ReactNode }) {
-  const [selectedVersion, setSelectedVersionState] = useState<BibleVersion>(
-    availableVersions.find(v => v.isDefault) || availableVersions[0]
-  )
+const defaultVersion = availableVersions.find(v => v.isDefault) || availableVersions[0]
 
-  // Load saved version preference on mount
+export function BibleVersionProvider({ children }: { children: React.ReactNode }) {
+  const [selectedVersion, setSelectedVersionState] = useState<BibleVersion>(defaultVersion)
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  // Load saved version preference only on client side
   useEffect(() => {
-    const savedVersionId = localStorage.getItem('openbible-selected-version')
-    if (savedVersionId) {
-      const savedVersion = availableVersions.find(v => v.id === savedVersionId)
-      if (savedVersion) {
-        setSelectedVersionState(savedVersion)
+    try {
+      const savedVersionId = localStorage.getItem('openbible-selected-version')
+      if (savedVersionId) {
+        const savedVersion = availableVersions.find(v => v.id === savedVersionId)
+        if (savedVersion) {
+          setSelectedVersionState(savedVersion)
+        }
       }
+    } catch (error) {
+      console.error('Failed to load saved version:', error)
+    } finally {
+      setIsLoaded(true)
     }
   }, [])
 
-  // Save version preference when it changes
+  // Save version preference when it changes (only after initial load)
   const setSelectedVersion = (version: BibleVersion) => {
     setSelectedVersionState(version)
-    localStorage.setItem('openbible-selected-version', version.id)
+    if (isLoaded) {
+      try {
+        localStorage.setItem('openbible-selected-version', version.id)
+      } catch (error) {
+        console.error('Failed to save version preference:', error)
+      }
+    }
   }
 
   return (
