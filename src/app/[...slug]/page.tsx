@@ -1,18 +1,17 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 
 export default function CatchAllPage({ params }: { params: { slug: string[] } }) {
-  const router = useRouter()
-
   useEffect(() => {
     console.log('🚨 Catch-all route triggered for:', params.slug)
     console.log('📍 Redirecting to main app')
     
-    // Redirect to main app and let client-side routing handle it
-    router.replace('/')
-  }, [router, params.slug])
+    // Redirect to main app using window.location (works with static export)
+    if (typeof window !== 'undefined') {
+      window.location.href = '/'
+    }
+  }, [params.slug])
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">

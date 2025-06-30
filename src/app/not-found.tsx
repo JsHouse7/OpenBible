@@ -1,11 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 
 export default function NotFound() {
-  const router = useRouter()
-
   useEffect(() => {
     console.log('🚨 404 Page triggered - redirecting to main app')
     console.log('📍 Current location:', window.location.href)
@@ -14,9 +11,11 @@ export default function NotFound() {
     const intendedPath = window.location.pathname
     console.log('🎯 Intended path:', intendedPath)
     
-    // Redirect to main app and let client-side routing handle it
-    router.replace('/')
-  }, [router])
+    // Redirect to main app using window.location (works with static export)
+    if (typeof window !== 'undefined') {
+      window.location.href = '/'
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
