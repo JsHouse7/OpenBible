@@ -3,6 +3,42 @@
     {
       "source": "/dashboard",
       "destination": "/"
+    },
+    {
+      "source": "/bible",
+      "destination": "/"
+    },
+    {
+      "source": "/notes",
+      "destination": "/"
+    },
+    {
+      "source": "/bookmarks",
+      "destination": "/"
+    },
+    {
+      "source": "/highlights",
+      "destination": "/"
+    },
+    {
+      "source": "/reading-plans",
+      "destination": "/"
+    },
+    {
+      "source": "/progress",
+      "destination": "/"
+    },
+    {
+      "source": "/literature",
+      "destination": "/"
+    },
+    {
+      "source": "/profile",
+      "destination": "/"
+    },
+    {
+      "source": "/settings",
+      "destination": "/"
     }
   ]
 } 
