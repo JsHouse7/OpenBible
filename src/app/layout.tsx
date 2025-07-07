@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { UserPreferencesProvider } from "@/components/UserPreferencesProvider";
 import { BibleVersionProvider } from "@/components/BibleVersionProvider";
 import { AnimationProvider } from "@/components/AnimationProvider";
+import { AuthProvider } from "@/components/AuthProvider";
 import EnhancedNavigation from "@/components/EnhancedNavigation";
 
 const inter = Inter({
@@ -28,20 +29,22 @@ export default function RootLayout({
         <ThemeProvider
           defaultTheme="system"
         >
-          <UserPreferencesProvider>
-            <BibleVersionProvider>
-              <AnimationProvider>
-                <div className="min-h-screen bg-background">
-                  <EnhancedNavigation />
-                  <div className="pt-16 transition-all duration-300">
-                    <main className="min-h-screen">
-                      {children}
-                    </main>
+          <AuthProvider>
+            <UserPreferencesProvider>
+              <BibleVersionProvider>
+                <AnimationProvider>
+                  <div className="min-h-screen bg-background">
+                    <EnhancedNavigation />
+                    <div className="pt-16 transition-all duration-300">
+                      <main className="min-h-screen">
+                        {children}
+                      </main>
+                    </div>
                   </div>
-                </div>
-              </AnimationProvider>
-            </BibleVersionProvider>
-          </UserPreferencesProvider>
+                </AnimationProvider>
+              </BibleVersionProvider>
+            </UserPreferencesProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
