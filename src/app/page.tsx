@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Dashboard from '@/components/Dashboard'
 import { BibleReader } from '@/components/BibleReader'
 import NotesPage from '@/components/NotesPage'
@@ -18,6 +19,33 @@ export default function HomePage() {
   const [currentBook, setCurrentBook] = useState('John')
   const [currentChapter, setCurrentChapter] = useState(3)
   const isMobile = useIsMobile()
+  const router = useRouter()
+
+  // Initialize page based on URL pathname
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname
+      console.log('🛣️ Initial pathname:', path)
+      
+      // Map URL paths to page states
+      const pathToPage: Record<string, string> = {
+        '/dashboard': 'dashboard',
+        '/bible': 'bible',
+        '/notes': 'notes',
+        '/bookmarks': 'bookmarks',
+        '/highlights': 'highlights',
+        '/reading-plans': 'plans',
+        '/progress': 'progress',
+        '/literature': 'literature',
+        '/profile': 'profile',
+        '/settings': 'settings'
+      }
+
+      const initialPage = pathToPage[path] || 'dashboard'
+      console.log('🎯 Setting initial page to:', initialPage)
+      setCurrentPage(initialPage)
+    }
+  }, [])
 
   // Debug logging
   useEffect(() => {
@@ -37,18 +65,39 @@ export default function HomePage() {
   const handleNavigation = (page: string) => {
     console.log('🧭 Navigating to:', page);
     setCurrentPage(page)
+    
+    // Update URL without page reload
+    const pageToPath: Record<string, string> = {
+      'dashboard': '/dashboard',
+      'bible': '/bible',
+      'reader': '/bible',
+      'notes': '/notes',
+      'bookmarks': '/bookmarks',
+      'highlights': '/highlights',
+      'plans': '/reading-plans',
+      'progress': '/progress',
+      'literature': '/literature',
+      'profile': '/profile',
+      'settings': '/settings'
+    }
+    
+    const newPath = pageToPath[page] || '/dashboard'
+    console.log('📍 Updating URL to:', newPath)
+    window.history.pushState({}, '', newPath)
   }
 
   const handleBookChange = (book: string) => {
     console.log('📚 Book changed to:', book);
     setCurrentBook(book)
     setCurrentPage('reader')
+    window.history.pushState({}, '', '/bible')
   }
 
   const handleChapterChange = (chapter: number) => {
     console.log('📄 Chapter changed to:', chapter);
     setCurrentChapter(chapter)
     setCurrentPage('reader')
+    window.history.pushState({}, '', '/bible')
   }
 
   const renderPage = () => {
