@@ -1,43 +1,43 @@
 {
   "rewrites": [
     {
-      "source": "/dashboard",
+      "source": "/dashboard/?",
       "destination": "/"
     },
     {
-      "source": "/bible",
+      "source": "/bible/?",
       "destination": "/"
     },
     {
-      "source": "/notes",
+      "source": "/notes/?",
       "destination": "/"
     },
     {
-      "source": "/bookmarks",
+      "source": "/bookmarks/?",
       "destination": "/"
     },
     {
-      "source": "/highlights",
+      "source": "/highlights/?",
       "destination": "/"
     },
     {
-      "source": "/reading-plans",
+      "source": "/reading-plans/?",
       "destination": "/"
     },
     {
-      "source": "/progress",
+      "source": "/progress/?",
       "destination": "/"
     },
     {
-      "source": "/literature",
+      "source": "/literature/?",
       "destination": "/"
     },
     {
-      "source": "/profile",
+      "source": "/profile/?",
       "destination": "/"
     },
     {
-      "source": "/settings",
+      "source": "/settings/?",
       "destination": "/"
     }
   ]
