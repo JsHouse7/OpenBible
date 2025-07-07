@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { useTheme } from '@/components/ThemeProvider'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
@@ -29,27 +30,24 @@ import {
   Shield
 } from 'lucide-react'
 
-interface EnhancedNavigationProps {
-  currentPage: string
-  onPageChange: (page: string) => void
-}
-
-const EnhancedNavigation = ({ currentPage, onPageChange }: EnhancedNavigationProps) => {
+const EnhancedNavigation = () => {
   const [searchOpen, setSearchOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const { theme, setTheme } = useTheme()
+  const router = useRouter()
+  const pathname = usePathname()
 
   const navigationItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home, badge: null },
-    { id: 'reader', label: 'Bible Reader', icon: BookOpen, badge: null },
-    { id: 'literature', label: 'Literature', icon: Library, badge: 'New' },
-    { id: 'notes', label: 'My Notes', icon: Star, badge: '12' },
-    { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark, badge: null },
-    { id: 'highlights', label: 'Highlights', icon: Heart, badge: null },
-    { id: 'progress', label: 'Progress', icon: TrendingUp, badge: null },
-    { id: 'plans', label: 'Reading Plans', icon: Calendar, badge: 'Soon' },
-    { id: 'profile', label: 'My Profile', icon: User, badge: null },
+    { id: 'dashboard', label: 'Dashboard', icon: Home, badge: null, href: '/dashboard' },
+    { id: 'bible', label: 'Bible Reader', icon: BookOpen, badge: null, href: '/bible' },
+    { id: 'literature', label: 'Literature', icon: Library, badge: 'New', href: '/literature' },
+    { id: 'notes', label: 'My Notes', icon: Star, badge: '12', href: '/notes' },
+    { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark, badge: null, href: '/bookmarks' },
+    { id: 'highlights', label: 'Highlights', icon: Heart, badge: null, href: '/highlights' },
+    { id: 'progress', label: 'Progress', icon: TrendingUp, badge: null, href: '/progress' },
+    { id: 'reading-plans', label: 'Reading Plans', icon: Calendar, badge: 'Soon', href: '/reading-plans' },
+    { id: 'profile', label: 'My Profile', icon: User, badge: null, href: '/profile' },
   ]
 
   const quickSearchItems = [
@@ -61,6 +59,17 @@ const EnhancedNavigation = ({ currentPage, onPageChange }: EnhancedNavigationPro
     { type: 'verse', title: 'John 3:16', description: 'For God so loved the world...' },
     { type: 'verse', title: 'Romans 8:28', description: 'And we know that in all things...' },
   ]
+
+  const getCurrentPage = () => {
+    if (pathname === '/') return 'dashboard'
+    return pathname.slice(1) // Remove leading slash
+  }
+
+  const handleNavigation = (href: string) => {
+    router.push(href)
+    setMobileMenuOpen(false)
+    setUserMenuOpen(false)
+  }
 
   const getItemIcon = (type: string) => {
     switch (type) {
@@ -116,11 +125,10 @@ const EnhancedNavigation = ({ currentPage, onPageChange }: EnhancedNavigationPro
                     {navigationItems.map((item) => (
                       <Button
                         key={item.id}
-                        variant={currentPage === item.id ? "default" : "ghost"}
+                        variant={getCurrentPage() === item.id ? "default" : "ghost"}
                         className="w-full justify-start h-11"
                         onClick={() => {
-                          onPageChange(item.id)
-                          setMobileMenuOpen(false)
+                          handleNavigation(item.href)
                         }}
                       >
                         <item.icon className="mr-3 h-4 w-4" />
@@ -150,7 +158,7 @@ const EnhancedNavigation = ({ currentPage, onPageChange }: EnhancedNavigationPro
                         variant="ghost" 
                         className="w-full justify-start h-11"
                         onClick={() => {
-                          onPageChange('settings')
+                          handleNavigation('/settings')
                           setMobileMenuOpen(false)
                         }}
                       >
@@ -206,9 +214,9 @@ const EnhancedNavigation = ({ currentPage, onPageChange }: EnhancedNavigationPro
                 <Button
                   key={item.id}
                   variant="ghost"
-                  onClick={() => onPageChange(item.id)}
+                  onClick={() => handleNavigation(item.href)}
                   className={`relative ${
-                    currentPage === item.id 
+                    getCurrentPage() === item.id 
                       ? 'text-foreground font-medium' 
                       : 'text-muted-foreground'
                   }`}
@@ -388,7 +396,7 @@ const EnhancedNavigation = ({ currentPage, onPageChange }: EnhancedNavigationPro
                       variant="ghost" 
                       className="w-full justify-start"
                       onClick={() => {
-                        onPageChange('profile')
+                        handleNavigation('/profile')
                         setUserMenuOpen(false)
                       }}
                     >
@@ -399,7 +407,7 @@ const EnhancedNavigation = ({ currentPage, onPageChange }: EnhancedNavigationPro
                       variant="ghost" 
                       className="w-full justify-start"
                       onClick={() => {
-                        onPageChange('settings')
+                        handleNavigation('/settings')
                         setUserMenuOpen(false)
                       }}
                     >

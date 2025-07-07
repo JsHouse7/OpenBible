@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { UserPreferencesProvider } from "@/components/UserPreferencesProvider";
 import { BibleVersionProvider } from "@/components/BibleVersionProvider";
 import { AnimationProvider } from "@/components/AnimationProvider";
+import EnhancedNavigation from "@/components/EnhancedNavigation";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -30,9 +31,14 @@ export default function RootLayout({
           <UserPreferencesProvider>
             <BibleVersionProvider>
               <AnimationProvider>
-                <main className="min-h-screen">
-                  {children}
-                </main>
+                <div className="min-h-screen bg-background">
+                  <EnhancedNavigation />
+                  <div className="pt-16 transition-all duration-300">
+                    <main className="min-h-screen">
+                      {children}
+                    </main>
+                  </div>
+                </div>
               </AnimationProvider>
             </BibleVersionProvider>
           </UserPreferencesProvider>
