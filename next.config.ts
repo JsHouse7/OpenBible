@@ -15,7 +15,9 @@ const nextConfig: NextConfig = {
   },
   images: {
     unoptimized: true
-  }
+  },
+  // Ensure proper static generation for Vercel
+  output: 'standalone'
 };
 
 export default nextConfig;
