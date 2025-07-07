@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { UserPreferencesProvider } from "@/components/UserPreferencesProvider";
 import { BibleVersionProvider } from "@/components/BibleVersionProvider";
+import { AnimationProvider } from "@/components/AnimationProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -28,9 +29,11 @@ export default function RootLayout({
         >
           <UserPreferencesProvider>
             <BibleVersionProvider>
-              <main className="min-h-screen">
-                {children}
-              </main>
+              <AnimationProvider>
+                <main className="min-h-screen">
+                  {children}
+                </main>
+              </AnimationProvider>
             </BibleVersionProvider>
           </UserPreferencesProvider>
         </ThemeProvider>

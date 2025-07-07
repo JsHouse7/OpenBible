@@ -137,7 +137,6 @@ const ProfilePage = () => {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Avatar className="h-24 w-24">
-                    <AvatarImage src="/api/placeholder/96/96" alt="Profile" />
                     <AvatarFallback className="text-2xl">JB</AvatarFallback>
                   </Avatar>
                   {isEditing && (

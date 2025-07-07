@@ -135,7 +135,6 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
           </p>
         </div>
         <Avatar className="h-12 w-12">
-          <AvatarImage src="/api/placeholder/48/48" alt="User" />
           <AvatarFallback>OB</AvatarFallback>
         </Avatar>
       </div>
