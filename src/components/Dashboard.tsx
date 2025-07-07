@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/Button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useUserPreferences } from '@/components/UserPreferencesProvider'
+import { useAuth } from '@/components/AuthProvider'
+import { analyticsService } from '@/lib/database'
 import { 
   BookOpen, 
   Clock, 
@@ -19,7 +21,8 @@ import {
   Heart,
   Award,
   BookmarkIcon,
-  Shield
+  Shield,
+  Loader2
 } from 'lucide-react'
 
 interface ReadingStats {
@@ -48,57 +51,73 @@ interface DashboardProps {
 
 const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
   const { preferences } = useUserPreferences()
-  const [stats, setStats] = useState<ReadingStats>({
-    totalVersesRead: 1247,
-    totalChaptersRead: 42,
-    totalBooksRead: 8,
-    currentStreak: 12,
-    totalReadingTime: 1680, // minutes
-    notesCreated: 56,
-    bookmarksCreated: 23,
-    highlightsCreated: 89,
-    favoriteBooks: ['John', 'Psalms', 'Romans', 'Genesis'],
-    recentActivity: [
-      {
-        type: 'read',
-        content: 'Completed John Chapter 3',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        book: 'John',
-        chapter: 3
-      },
-      {
-        type: 'highlight',
-        content: 'John 3:16 - For God so loved the world...',
-        timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000),
-        book: 'John',
-        chapter: 3,
-        verse: 16
-      },
-      {
-        type: 'note',
-        content: 'Deep thoughts on born again concept',
-        timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000),
-        book: 'John',
-        chapter: 3
-      },
-      {
-        type: 'bookmark',
-        content: 'John 3:1-21 - Nicodemus encounter',
-        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        book: 'John',
-        chapter: 3
-      }
-    ]
-  })
+  const { user, loading: authLoading } = useAuth()
+  const [stats, setStats] = useState<ReadingStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [currentGoal, setCurrentGoal] = useState({
     type: 'chapters',
     target: 50,
-    current: 42,
+    current: 0,
     deadline: 'End of Month'
   })
 
+  // Fetch real user statistics
+  useEffect(() => {
+    const fetchUserStats = async () => {
+      if (!user?.id) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const { data: userStats, error: statsError } = await analyticsService.getUserStats(user.id)
+        
+        if (statsError) {
+          console.error('Error fetching user stats:', statsError)
+          setError('Failed to load your statistics')
+          return
+        }
+
+        // Transform database stats to component format
+        const transformedStats: ReadingStats = {
+          totalVersesRead: 0, // TODO: Implement verse tracking
+          totalChaptersRead: userStats?.booksRead || 0, // Using books read as proxy
+          totalBooksRead: userStats?.booksRead || 0,
+          currentStreak: userStats?.currentStreak || 0,
+          totalReadingTime: userStats?.totalReadingTime || 0,
+          notesCreated: userStats?.totalNotes || 0,
+          bookmarksCreated: userStats?.totalBookmarks || 0,
+          highlightsCreated: userStats?.totalHighlights || 0,
+          favoriteBooks: [], // TODO: Calculate from reading progress
+          recentActivity: [] // TODO: Implement activity tracking
+        }
+
+        setStats(transformedStats)
+        setCurrentGoal(prev => ({
+          ...prev,
+          current: transformedStats.totalChaptersRead
+        }))
+
+      } catch (error) {
+        console.error('Error fetching stats:', error)
+        setError('Failed to load your statistics')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (!authLoading) {
+      fetchUserStats()
+    }
+  }, [user, authLoading])
+
   const formatReadingTime = (minutes: number) => {
+    if (minutes === 0) return '0h 0m'
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
     return `${hours}h ${mins}m`
@@ -124,18 +143,78 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
     }
   }
 
+  const getUserDisplayName = () => {
+    if (!user) return 'Guest'
+    return user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+  }
+
+  const getUserInitials = () => {
+    const name = getUserDisplayName()
+    if (name === 'Guest') return 'G'
+    return name.split(' ').map((word: string) => word[0]).join('').toUpperCase().slice(0, 2)
+  }
+
+  // Show loading state
+  if (authLoading || loading) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">Loading your dashboard...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()}>Try Again</Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login prompt for unauthenticated users
+  if (!user) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <BookOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-2xl font-bold mb-2">Welcome to OpenBible</h2>
+            <p className="text-muted-foreground mb-6">Sign in to track your reading progress and personalize your experience</p>
+            <Button onClick={() => window.location.href = '/auth'}>
+              Sign In
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Welcome Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome back!</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Welcome back, {getUserDisplayName()}!
+          </h1>
           <p className="text-muted-foreground">
             Continue your spiritual journey with OpenBible
           </p>
         </div>
         <Avatar className="h-12 w-12">
-          <AvatarFallback>OB</AvatarFallback>
+          <AvatarImage src={user.user_metadata?.avatar_url} />
+          <AvatarFallback>{getUserInitials()}</AvatarFallback>
         </Avatar>
       </div>
 
@@ -150,9 +229,9 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.currentStreak} days</div>
+              <div className="text-2xl font-bold">{stats?.currentStreak || 0} days</div>
               <p className="text-xs text-muted-foreground">
-                Keep it going! 🔥
+                {stats?.currentStreak ? 'Keep it going! 🔥' : 'Start your reading journey!'}
               </p>
             </CardContent>
           </Card>
@@ -160,14 +239,14 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Chapters Read
+                Books Read
               </CardTitle>
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalChaptersRead}</div>
+              <div className="text-2xl font-bold">{stats?.totalBooksRead || 0}</div>
               <p className="text-xs text-muted-foreground">
-                {stats.totalBooksRead} books completed
+                {stats?.totalChaptersRead || 0} chapters
               </p>
             </CardContent>
           </Card>
@@ -180,7 +259,7 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatReadingTime(stats.totalReadingTime)}</div>
+              <div className="text-2xl font-bold">{formatReadingTime(stats?.totalReadingTime || 0)}</div>
               <p className="text-xs text-muted-foreground">
                 This month
               </p>
@@ -195,7 +274,9 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.notesCreated + stats.highlightsCreated + stats.bookmarksCreated}</div>
+              <div className="text-2xl font-bold">
+                {(stats?.notesCreated || 0) + (stats?.highlightsCreated || 0) + (stats?.bookmarksCreated || 0)}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Notes, highlights & bookmarks
               </p>
@@ -260,19 +341,19 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
               <CardContent className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-sm">Verses Read:</span>
-                  <Badge variant="secondary">{stats.totalVersesRead.toLocaleString()}</Badge>
+                  <Badge variant="secondary">{stats?.totalVersesRead.toLocaleString() || 0}</Badge>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm">Notes Created:</span>
-                  <Badge variant="secondary">{stats.notesCreated}</Badge>
+                  <Badge variant="secondary">{stats?.notesCreated || 0}</Badge>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm">Highlights:</span>
-                  <Badge variant="secondary">{stats.highlightsCreated}</Badge>
+                  <Badge variant="secondary">{stats?.highlightsCreated || 0}</Badge>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm">Bookmarks:</span>
-                  <Badge variant="secondary">{stats.bookmarksCreated}</Badge>
+                  <Badge variant="secondary">{stats?.bookmarksCreated || 0}</Badge>
                 </div>
               </CardContent>
             </Card>
@@ -285,7 +366,7 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {stats.favoriteBooks.map((book, index) => (
+                {stats?.favoriteBooks.map((book, index) => (
                   <Badge 
                     key={index} 
                     variant="secondary" 
@@ -307,7 +388,7 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {stats.recentActivity.map((activity, index) => (
+                {stats?.recentActivity.map((activity, index) => (
                   <div key={index} className="flex items-start space-x-3 p-3 rounded-lg border border-border bg-card">
                     <div className={`p-2 rounded-full ${getActivityColor(activity.type)}`}>
                       {getActivityIcon(activity.type)}

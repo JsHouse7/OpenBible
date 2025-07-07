@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAuth } from './AuthProvider'
+import { bookmarksService } from '@/lib/database'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAnimations } from '@/components/AnimationProvider'
@@ -26,129 +28,181 @@ import {
   Heart,
   Eye,
   Copy,
-  Share2
+  Share2,
+  Plus,
+  BookmarkCheck,
+  Loader2
 } from 'lucide-react'
+import { Label } from '@/components/ui/label'
 
-interface Bookmark {
+interface DatabaseBookmark {
   id: string
-  verseId: string
-  text: string
-  reference: string
-  timestamp: string
+  user_id: string
   book: string
   chapter: number
   verse: number
-  endVerse?: number
-  tags?: string[]
-  category?: 'favorite' | 'study' | 'memorize' | 'share' | 'devotional'
-  notes?: string
+  title?: string
+  created_at: string
 }
 
 const BookmarksPage = () => {
+  const { user, loading: authLoading } = useAuth()
   const { getTransitionClass } = useAnimations()
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
+  const [bookmarks, setBookmarks] = useState<DatabaseBookmark[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<'date' | 'book' | 'verse'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-  const [filterCategory, setFilterCategory] = useState<string>('all')
-  const [selectedBookmark, setSelectedBookmark] = useState<Bookmark | null>(null)
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [filterBook, setFilterBook] = useState<string>('all')
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  // Load bookmarks from localStorage on mount
+  const [newBookmark, setNewBookmark] = useState({
+    book: '',
+    chapter: 1,
+    verse: 1,
+    title: ''
+  })
+
+  // Fetch user bookmarks from database
   useEffect(() => {
-    const savedBookmarks = localStorage.getItem('openbible-bookmarks')
-    if (savedBookmarks) {
-      try {
-        const parsed = JSON.parse(savedBookmarks)
-        setBookmarks(parsed)
-      } catch (error) {
-        console.error('Failed to parse saved bookmarks:', error)
-        initializeSampleBookmarks()
+    const fetchBookmarks = async () => {
+      if (!user?.id) {
+        setLoading(false)
+        return
       }
-    } else {
-      initializeSampleBookmarks()
-    }
-  }, [])
 
-  const initializeSampleBookmarks = () => {
-    const sampleBookmarks: Bookmark[] = [
-      {
-        id: 'bookmark-1',
-        verseId: 'john-3-16',
-        text: 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.',
-        reference: 'John 3:16',
-        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        book: 'John',
-        chapter: 3,
-        verse: 16,
-        tags: ['love', 'salvation', 'eternal life'],
-        category: 'favorite',
-        notes: 'The most famous verse in the Bible - the Gospel in a nutshell.'
-      },
-      {
-        id: 'bookmark-2',
-        verseId: 'psalm-23-1-6',
-        text: 'The Lord is my shepherd; I shall not want. He maketh me to lie down in green pastures: he leadeth me beside the still waters...',
-        reference: 'Psalm 23:1-6',
-        timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        book: 'Psalms',
-        chapter: 23,
-        verse: 1,
-        endVerse: 6,
-        tags: ['comfort', 'guidance', 'protection'],
-        category: 'devotional',
-        notes: 'Perfect for times of anxiety and fear. God as our shepherd provides everything we need.'
-      },
-      {
-        id: 'bookmark-3',
-        verseId: 'philippians-4-13',
-        text: 'I can do all things through Christ which strengtheneth me.',
-        reference: 'Philippians 4:13',
-        timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        book: 'Philippians',
-        chapter: 4,
-        verse: 13,
-        tags: ['strength', 'perseverance', 'Christ'],
-        category: 'memorize',
-        notes: 'Not about achieving worldly success, but about contentment in all circumstances through Christ.'
-      },
-      {
-        id: 'bookmark-4',
-        verseId: 'romans-8-28',
-        text: 'And we know that all things work together for good to them that love God, to them who are the called according to his purpose.',
-        reference: 'Romans 8:28',
-        timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        book: 'Romans',
-        chapter: 8,
-        verse: 28,
-        tags: ['providence', 'hope', 'purpose'],
-        category: 'study',
-        notes: 'Key to understanding God\'s sovereignty in both good and difficult times.'
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const { data, error: bookmarksError } = await bookmarksService.getUserBookmarks(user.id)
+        
+        if (bookmarksError) {
+          console.error('Error fetching bookmarks:', bookmarksError)
+          setError('Failed to load your bookmarks')
+          return
+        }
+
+        setBookmarks(data || [])
+      } catch (error) {
+        console.error('Error fetching bookmarks:', error)
+        setError('Failed to load your bookmarks')
+      } finally {
+        setLoading(false)
       }
-    ]
-    setBookmarks(sampleBookmarks)
-    localStorage.setItem('openbible-bookmarks', JSON.stringify(sampleBookmarks))
+    }
+
+    if (!authLoading) {
+      fetchBookmarks()
+    }
+  }, [user, authLoading])
+
+  const handleAddBookmark = async () => {
+    if (!user?.id || !newBookmark.book || !newBookmark.chapter || !newBookmark.verse) return
+
+    try {
+      setSaving(true)
+      setError(null)
+
+      const { data, error: addError } = await bookmarksService.addBookmark(
+        user.id,
+        newBookmark.book,
+        newBookmark.chapter,
+        newBookmark.verse,
+        newBookmark.title || undefined
+      )
+
+      if (addError) {
+        console.error('Error adding bookmark:', addError)
+        setError('Failed to add bookmark')
+        return
+      }
+
+      // Refresh bookmarks list
+      const { data: updatedBookmarks } = await bookmarksService.getUserBookmarks(user.id)
+      setBookmarks(updatedBookmarks || [])
+
+      // Reset form
+      setShowAddDialog(false)
+      setNewBookmark({ book: '', chapter: 1, verse: 1, title: '' })
+      
+    } catch (error) {
+      console.error('Error adding bookmark:', error)
+      setError('Failed to add bookmark')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  // Save bookmarks to localStorage whenever bookmarks change
-  useEffect(() => {
-    localStorage.setItem('openbible-bookmarks', JSON.stringify(bookmarks))
-  }, [bookmarks])
+  const handleDeleteBookmark = async (bookmark: DatabaseBookmark) => {
+    if (!user?.id) return
+
+    try {
+      setSaving(true)
+      setError(null)
+
+      const { error: deleteError } = await bookmarksService.removeBookmark(
+        user.id,
+        bookmark.book,
+        bookmark.chapter,
+        bookmark.verse
+      )
+
+      if (deleteError) {
+        console.error('Error deleting bookmark:', deleteError)
+        setError('Failed to delete bookmark')
+        return
+      }
+
+      // Remove from local state
+      setBookmarks(bookmarks.filter(b => b.id !== bookmark.id))
+      
+    } catch (error) {
+      console.error('Error deleting bookmark:', error)
+      setError('Failed to delete bookmark')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    } catch {
+      return 'Unknown date'
+    }
+  }
+
+  const getUniqueBooks = () => {
+    const books = Array.from(new Set(bookmarks.map(bookmark => bookmark.book))).sort()
+    return books
+  }
+
+  const getReference = (bookmark: DatabaseBookmark) => {
+    return `${bookmark.book} ${bookmark.chapter}:${bookmark.verse}`
+  }
 
   const filteredAndSortedBookmarks = bookmarks
     .filter(bookmark => {
-      const matchesSearch = bookmark.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           bookmark.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           bookmark.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-      const matchesCategory = filterCategory === 'all' || bookmark.category === filterCategory
-      return matchesSearch && matchesCategory
+      const reference = getReference(bookmark)
+      const matchesSearch = reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           bookmark.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           bookmark.book.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesBook = filterBook === 'all' || bookmark.book === filterBook
+      return matchesSearch && matchesBook
     })
     .sort((a, b) => {
       let comparison = 0
       
       switch (sortBy) {
         case 'date':
-          comparison = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           break
         case 'book':
           comparison = a.book.localeCompare(b.book) || a.chapter - b.chapter || a.verse - b.verse
@@ -161,72 +215,125 @@ const BookmarksPage = () => {
       return sortOrder === 'asc' ? comparison : -comparison
     })
 
-  const formatDate = (timestamp: string) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-    
-    if (diffDays === 0) return 'Today'
-    if (diffDays === 1) return 'Yesterday'
-    if (diffDays < 7) return `${diffDays} days ago`
-    return date.toLocaleDateString()
+  // Show loading state
+  if (authLoading || loading) {
+    return (
+      <div className="container mx-auto p-6 pb-24 md:pb-6 space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">Loading your bookmarks...</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'favorite': return 'bg-red-500'
-      case 'study': return 'bg-blue-500'
-      case 'memorize': return 'bg-purple-500'
-      case 'share': return 'bg-green-500'
-      case 'devotional': return 'bg-orange-500'
-      default: return 'bg-gray-500'
-    }
+  // Show login prompt for unauthenticated users
+  if (!user) {
+    return (
+      <div className="container mx-auto p-6 pb-24 md:pb-6 space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <BookmarkIcon className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-2xl font-bold mb-2">Bookmarks Not Available</h2>
+            <p className="text-muted-foreground mb-6">Sign in to view and manage your saved verses</p>
+            <Button onClick={() => window.location.href = '/auth'}>
+              Sign In
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'favorite': return '❤️'
-      case 'study': return '📚'
-      case 'memorize': return '🧠'
-      case 'share': return '📤'
-      case 'devotional': return '🙏'
-      default: return '🔖'
-    }
-  }
-
-  const handleViewDetails = (bookmark: Bookmark) => {
-    setSelectedBookmark(bookmark)
-    setIsDetailModalOpen(true)
-  }
-
-  const handleDeleteBookmark = (bookmarkId: string) => {
-    setBookmarks(prev => prev.filter(bookmark => bookmark.id !== bookmarkId))
-  }
-
-  const handleCopyVerse = (bookmark: Bookmark) => {
-    const textToCopy = `"${bookmark.text}" - ${bookmark.reference}`
-    navigator.clipboard.writeText(textToCopy)
-    // Could add a toast notification here
-  }
-
-  const favoriteBookmarks = bookmarks.filter(b => b.category === 'favorite')
-  const totalBookmarks = bookmarks.length
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Bookmarks</h1>
+          <h1 className="text-3xl font-bold tracking-tight">My Bookmarks</h1>
           <p className="text-muted-foreground">
-            Your saved verses and passages
+            Your saved verses and favorite passages
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary">{totalBookmarks} bookmarks</Badge>
-          <Badge variant="outline">{favoriteBookmarks.length} favorites</Badge>
+          <Badge variant="secondary">{bookmarks.length} bookmarks</Badge>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Bookmark
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Bookmark</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label htmlFor="book">Book</Label>
+                    <Input
+                      id="book"
+                      value={newBookmark.book}
+                      onChange={(e) => setNewBookmark({...newBookmark, book: e.target.value})}
+                      placeholder="e.g., John"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="chapter">Chapter</Label>
+                    <Input
+                      id="chapter"
+                      type="number"
+                      min="1"
+                      value={newBookmark.chapter}
+                      onChange={(e) => setNewBookmark({...newBookmark, chapter: parseInt(e.target.value) || 1})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="verse">Verse</Label>
+                    <Input
+                      id="verse"
+                      type="number"
+                      min="1"
+                      value={newBookmark.verse}
+                      onChange={(e) => setNewBookmark({...newBookmark, verse: parseInt(e.target.value) || 1})}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="title">Title (Optional)</Label>
+                  <Input
+                    id="title"
+                    value={newBookmark.title}
+                    onChange={(e) => setNewBookmark({...newBookmark, title: e.target.value})}
+                    placeholder="Add a title for this bookmark..."
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleAddBookmark}
+                    disabled={!newBookmark.book || saving}
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <BookmarkCheck className="h-4 w-4 mr-2" />}
+                    Add Bookmark
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-700">{error}</p>
+        </div>
+      )}
 
       {/* Search and Filters */}
       <Card>
@@ -247,18 +354,16 @@ const BookmarksPage = () => {
 
             {/* Filters */}
             <div className="flex gap-2">
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <Select value={filterBook} onValueChange={setFilterBook}>
                 <SelectTrigger className="w-[140px]">
                   <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Category" />
+                  <SelectValue placeholder="Filter by book" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="favorite">Favorites</SelectItem>
-                  <SelectItem value="study">Study</SelectItem>
-                  <SelectItem value="memorize">Memorize</SelectItem>
-                  <SelectItem value="share">Share</SelectItem>
-                  <SelectItem value="devotional">Devotional</SelectItem>
+                  <SelectItem value="all">All Books</SelectItem>
+                  {getUniqueBooks().map(book => (
+                    <SelectItem key={book} value={book}>{book}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -288,8 +393,8 @@ const BookmarksPage = () => {
       {/* Tabs */}
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">All Bookmarks ({totalBookmarks})</TabsTrigger>
-          <TabsTrigger value="favorites">Favorites ({favoriteBookmarks.length})</TabsTrigger>
+          <TabsTrigger value="all">All Bookmarks ({bookmarks.length})</TabsTrigger>
+          <TabsTrigger value="favorites">Favorites</TabsTrigger>
           <TabsTrigger value="recent">Recent</TabsTrigger>
         </TabsList>
 
@@ -301,7 +406,7 @@ const BookmarksPage = () => {
                   <BookmarkIcon className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No bookmarks found</h3>
                   <p className="text-muted-foreground mb-4">
-                    {searchTerm || filterCategory !== 'all' 
+                    {searchTerm || filterBook !== 'all' 
                       ? 'Try adjusting your search or filters'
                       : 'Start bookmarking verses as you read to save them for later'
                     }
@@ -321,12 +426,7 @@ const BookmarksPage = () => {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <BookmarkIcon className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{bookmark.reference}</span>
-                        {bookmark.category && (
-                          <Badge variant="secondary" className={`${getCategoryColor(bookmark.category)} text-white text-xs`}>
-                            {getCategoryIcon(bookmark.category)} {bookmark.category}
-                          </Badge>
-                        )}
+                        <span className="font-medium">{getReference(bookmark)}</span>
                       </div>
 
                       <DropdownMenu>
@@ -336,22 +436,7 @@ const BookmarksPage = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewDetails(bookmark)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleCopyVerse(bookmark)}>
-                            <Copy className="mr-2 h-4 w-4" />
-                            Copy Verse
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Share2 className="mr-2 h-4 w-4" />
-                            Share
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteBookmark(bookmark.id)}
-                            className="text-red-600 dark:text-red-400"
-                          >
+                          <DropdownMenuItem onClick={() => handleDeleteBookmark(bookmark)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Remove Bookmark
                           </DropdownMenuItem>
@@ -361,40 +446,17 @@ const BookmarksPage = () => {
                   </CardHeader>
                   <CardContent>
                     <blockquote className="text-foreground leading-relaxed mb-3 italic border-l-4 border-primary pl-4">
-                      "{bookmark.text}"
+                      "{bookmark.title || bookmark.book} ${bookmark.chapter}:${bookmark.verse}"
                     </blockquote>
                     
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {formatDate(bookmark.timestamp)}
+                          {formatDate(bookmark.created_at)}
                         </div>
-                        {bookmark.tags && bookmark.tags.length > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Tag className="h-3 w-3" />
-                            <div className="flex gap-1">
-                              {bookmark.tags.slice(0, 3).map(tag => (
-                                <Badge key={tag} variant="outline" className="text-xs py-0">
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {bookmark.tags.length > 3 && (
-                                <Badge variant="outline" className="text-xs py-0">
-                                  +{bookmark.tags.length - 3}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
-                    
-                    {bookmark.notes && (
-                      <div className="mt-3 p-3 bg-muted/50 rounded-lg">
-                        <p className="text-sm text-muted-foreground">{bookmark.notes}</p>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -404,7 +466,7 @@ const BookmarksPage = () => {
 
         <TabsContent value="favorites" className="space-y-4">
           <div className="grid gap-4">
-            {favoriteBookmarks.map((bookmark, index) => (
+            {bookmarks.filter(b => b.title).map((bookmark, index) => (
               <Card key={bookmark.id} className={cn(
                 "group hover:shadow-md transition-all duration-200",
                 getTransitionClass('default'),
@@ -414,13 +476,13 @@ const BookmarksPage = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
                       <Heart className="h-4 w-4 text-red-500 fill-current" />
-                      <span className="font-medium">{bookmark.reference}</span>
+                      <span className="font-medium">{getReference(bookmark)}</span>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <blockquote className="text-foreground leading-relaxed italic border-l-4 border-red-500 pl-4">
-                    "{bookmark.text}"
+                    "{bookmark.title || bookmark.book} ${bookmark.chapter}:${bookmark.verse}"
                   </blockquote>
                 </CardContent>
               </Card>
@@ -431,7 +493,7 @@ const BookmarksPage = () => {
         <TabsContent value="recent" className="space-y-4">
           <div className="grid gap-4">
             {bookmarks
-              .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
               .slice(0, 10)
               .map((bookmark, index) => (
                 <Card key={bookmark.id} className={cn(
@@ -443,16 +505,16 @@ const BookmarksPage = () => {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <BookmarkIcon className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{bookmark.reference}</span>
+                        <span className="font-medium">{getReference(bookmark)}</span>
                         <Badge variant="outline" className="text-xs">
-                          {formatDate(bookmark.timestamp)}
+                          {formatDate(bookmark.created_at)}
                         </Badge>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <blockquote className="text-foreground leading-relaxed italic border-l-4 border-primary pl-4">
-                      "{bookmark.text}"
+                      "{bookmark.title || bookmark.book} ${bookmark.chapter}:${bookmark.verse}"
                     </blockquote>
                   </CardContent>
                 </Card>
@@ -460,56 +522,6 @@ const BookmarksPage = () => {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Detail Modal */}
-      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{selectedBookmark?.reference}</DialogTitle>
-            <DialogDescription>
-              Saved on {selectedBookmark && formatDate(selectedBookmark.timestamp)}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedBookmark && (
-            <div className="space-y-4">
-              <blockquote className="text-lg leading-relaxed italic border-l-4 border-primary pl-4">
-                "{selectedBookmark.text}"
-              </blockquote>
-              
-              {selectedBookmark.notes && (
-                <div className="space-y-2">
-                  <h4 className="font-medium">Notes:</h4>
-                  <p className="text-muted-foreground">{selectedBookmark.notes}</p>
-                </div>
-              )}
-              
-              {selectedBookmark.tags && selectedBookmark.tags.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-medium">Tags:</h4>
-                  <div className="flex gap-2 flex-wrap">
-                    {selectedBookmark.tags.map(tag => (
-                      <Badge key={tag} variant="outline">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2 pt-4">
-                <Button variant="outline" onClick={() => handleCopyVerse(selectedBookmark)}>
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy Verse
-                </Button>
-                <Button variant="outline">
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Share
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

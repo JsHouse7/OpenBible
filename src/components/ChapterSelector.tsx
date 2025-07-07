@@ -26,7 +26,7 @@ export function ChapterSelector({ book, currentChapter, onChapterSelect, onClose
             </Button>
           </div>
           
-          <div className="grid grid-cols-5 gap-2 overflow-y-auto max-h-[60vh]">
+          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 overflow-y-auto max-h-[60vh]">
             {chapters.map((chapter) => (
               <Button
                 key={chapter}
@@ -36,7 +36,7 @@ export function ChapterSelector({ book, currentChapter, onChapterSelect, onClose
                   onChapterSelect(chapter)
                   onClose()
                 }}
-                className="w-full"
+                className="w-full h-12 text-base"
               >
                 {chapter}
               </Button>

@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useUserPreferences } from './UserPreferencesProvider'
+import { useAuth } from './AuthProvider'
+import { analyticsService } from '@/lib/database'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Switch } from '@/components/ui/switch'
@@ -32,50 +34,194 @@ import {
   BarChart3,
   Home,
   Library,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react'
 
 const ProfilePage = () => {
+  const { user, updateProfile, loading: authLoading } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const { preferences, updatePreferences } = useUserPreferences()
+  
   const [profileData, setProfileData] = useState({
-    name: 'John Believer',
-    email: 'john.believer@example.com',
-    bio: 'Passionate about studying God\'s Word and growing in faith. Love sharing insights with the community.',
-    joinDate: '2023-03-15',
-    location: 'Nashville, TN',
-    denomination: 'Non-denominational'
+    name: '',
+    email: '',
+    bio: '',
+    joinDate: '',
+    location: '',
+    denomination: ''
   })
 
-  const readingStats = {
-    totalBooks: 42,
-    totalChapters: 487,
-    totalVerses: 12043,
-    readingStreak: 23,
-    favoriteBook: 'Psalms',
-    totalNotes: 156,
-    totalBookmarks: 89,
-    totalHighlights: 234
-  }
+  const [readingStats, setReadingStats] = useState({
+    totalBooks: 0,
+    totalChapters: 0,
+    totalVerses: 0,
+    readingStreak: 0,
+    favoriteBook: '',
+    totalNotes: 0,
+    totalBookmarks: 0,
+    totalHighlights: 0
+  })
 
   const achievements = [
-    { title: 'First Steps', description: 'Complete your first chapter', earned: true },
-    { title: 'Dedicated Reader', description: 'Read for 7 consecutive days', earned: true },
-    { title: 'Scripture Scholar', description: 'Complete 10 books', earned: true },
-    { title: 'Note Taker', description: 'Create 50 notes', earned: true },
-    { title: 'Wisdom Seeker', description: 'Complete Proverbs', earned: false },
-    { title: 'Prayer Warrior', description: 'Complete 100 chapters', earned: false }
+    { title: 'First Steps', description: 'Complete your first chapter', earned: readingStats.totalChapters > 0 },
+    { title: 'Dedicated Reader', description: 'Read for 7 consecutive days', earned: readingStats.readingStreak >= 7 },
+    { title: 'Scripture Scholar', description: 'Complete 10 books', earned: readingStats.totalBooks >= 10 },
+    { title: 'Note Taker', description: 'Create 50 notes', earned: readingStats.totalNotes >= 50 },
+    { title: 'Wisdom Seeker', description: 'Complete Proverbs', earned: false }, // TODO: Check specific book completion
+    { title: 'Prayer Warrior', description: 'Complete 100 chapters', earned: readingStats.totalChapters >= 100 }
   ]
 
-  const handleSave = () => {
-    // Here you would typically save to your backend/database
-    setIsEditing(false)
-    console.log('Profile saved:', profileData)
+  // Fetch user data and stats
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user?.id) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Set profile data from auth user
+        setProfileData({
+          name: user.user_metadata?.full_name || '',
+          email: user.email || '',
+          bio: user.user_metadata?.bio || '',
+          joinDate: user.created_at || '',
+          location: user.user_metadata?.location || '',
+          denomination: user.user_metadata?.denomination || ''
+        })
+
+        // Fetch user statistics
+        const { data: userStats, error: statsError } = await analyticsService.getUserStats(user.id)
+        
+        if (statsError) {
+          console.error('Error fetching user stats:', statsError)
+          // Don't show error for stats, just use defaults
+        } else if (userStats) {
+          setReadingStats({
+            totalBooks: userStats.booksRead || 0,
+            totalChapters: userStats.booksRead || 0, // Using books as proxy for chapters
+            totalVerses: 0, // TODO: Implement verse tracking
+            readingStreak: userStats.currentStreak || 0,
+            favoriteBook: 'Psalms', // TODO: Calculate from reading data
+            totalNotes: userStats.totalNotes || 0,
+            totalBookmarks: userStats.totalBookmarks || 0,
+            totalHighlights: userStats.totalHighlights || 0
+          })
+        }
+
+      } catch (error) {
+        console.error('Error fetching user data:', error)
+        setError('Failed to load profile data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (!authLoading) {
+      fetchUserData()
+    }
+  }, [user, authLoading])
+
+  const handleSave = async () => {
+    if (!user) return
+
+    try {
+      setSaving(true)
+      setError(null)
+
+      // Update user profile in Supabase Auth
+      const { error: updateError } = await updateProfile({
+        full_name: profileData.name,
+        bio: profileData.bio,
+        location: profileData.location,
+        denomination: profileData.denomination
+      })
+
+      if (updateError) {
+        console.error('Profile update error:', updateError)
+        setError('Failed to update profile')
+        return
+      }
+
+      setIsEditing(false)
+      console.log('Profile updated successfully')
+    } catch (error) {
+      console.error('Unexpected error updating profile:', error)
+      setError('Failed to update profile')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleCancel = () => {
-    // Reset any unsaved changes
+    // Reset to original user data
+    if (user) {
+      setProfileData({
+        name: user.user_metadata?.full_name || '',
+        email: user.email || '',
+        bio: user.user_metadata?.bio || '',
+        joinDate: user.created_at || '',
+        location: user.user_metadata?.location || '',
+        denomination: user.user_metadata?.denomination || ''
+      })
+    }
     setIsEditing(false)
+    setError(null)
+  }
+
+  const getUserInitials = () => {
+    if (!profileData.name) return user?.email?.[0]?.toUpperCase() || 'U'
+    return profileData.name.split(' ').map((word: string) => word[0]).join('').toUpperCase().slice(0, 2)
+  }
+
+  const formatJoinDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long' 
+      })
+    } catch {
+      return 'Recently'
+    }
+  }
+
+  // Show loading state
+  if (authLoading || loading) {
+    return (
+      <div className="container mx-auto p-6 pb-24 md:pb-6 space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">Loading your profile...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login prompt for unauthenticated users
+  if (!user) {
+    return (
+      <div className="container mx-auto p-6 pb-24 md:pb-6 space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <User className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-2xl font-bold mb-2">Profile Not Available</h2>
+            <p className="text-muted-foreground mb-6">Sign in to view and manage your profile</p>
+            <Button onClick={() => window.location.href = '/auth'}>
+              Sign In
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -90,6 +236,12 @@ const ProfilePage = () => {
         </div>
         <User className="h-8 w-8 text-muted-foreground" />
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-700">{error}</p>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-3">
         {/* Profile Information */}
@@ -118,6 +270,7 @@ const ProfilePage = () => {
                     variant="outline"
                     size="sm"
                     onClick={handleCancel}
+                    disabled={saving}
                   >
                     <X className="h-4 w-4 mr-2" />
                     Cancel
@@ -125,8 +278,13 @@ const ProfilePage = () => {
                   <Button
                     size="sm"
                     onClick={handleSave}
+                    disabled={saving}
                   >
-                    <Save className="h-4 w-4 mr-2" />
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
                     Save
                   </Button>
                 </div>
@@ -137,7 +295,8 @@ const ProfilePage = () => {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Avatar className="h-24 w-24">
-                    <AvatarFallback className="text-2xl">JB</AvatarFallback>
+                    <AvatarImage src={user.user_metadata?.avatar_url} />
+                    <AvatarFallback className="text-2xl">{getUserInitials()}</AvatarFallback>
                   </Avatar>
                   {isEditing && (
                     <Button
@@ -150,13 +309,10 @@ const ProfilePage = () => {
                   )}
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold">{profileData.name}</h3>
+                  <h3 className="text-xl font-semibold">{profileData.name || profileData.email}</h3>
                   <p className="text-muted-foreground flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    Joined {new Date(profileData.joinDate).toLocaleDateString('en-US', { 
-                      year: 'numeric', 
-                      month: 'long' 
-                    })}
+                    Joined {formatJoinDate(profileData.joinDate)}
                   </p>
                 </div>
               </div>
@@ -172,27 +328,19 @@ const ProfilePage = () => {
                       id="name"
                       value={profileData.name}
                       onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+                      placeholder="Enter your full name"
                     />
                   ) : (
-                    <p className="text-sm p-2 bg-muted/20 rounded">{profileData.name}</p>
+                    <p className="text-sm p-2 bg-muted/20 rounded">{profileData.name || 'Not set'}</p>
                   )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  {isEditing ? (
-                    <Input
-                      id="email"
-                      type="email"
-                      value={profileData.email}
-                      onChange={(e) => setProfileData({...profileData, email: e.target.value})}
-                    />
-                  ) : (
-                    <p className="text-sm p-2 bg-muted/20 rounded flex items-center gap-2">
-                      <Mail className="h-4 w-4" />
-                      {profileData.email}
-                    </p>
-                  )}
+                  <p className="text-sm p-2 bg-muted/20 rounded flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    {profileData.email}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -202,12 +350,10 @@ const ProfilePage = () => {
                       id="location"
                       value={profileData.location}
                       onChange={(e) => setProfileData({...profileData, location: e.target.value})}
+                      placeholder="City, State/Country"
                     />
                   ) : (
-                    <p className="text-sm p-2 bg-muted/20 rounded flex items-center gap-2">
-                      <Globe className="h-4 w-4" />
-                      {profileData.location}
-                    </p>
+                    <p className="text-sm p-2 bg-muted/20 rounded">{profileData.location || 'Not set'}</p>
                   )}
                 </div>
 
@@ -218,9 +364,10 @@ const ProfilePage = () => {
                       id="denomination"
                       value={profileData.denomination}
                       onChange={(e) => setProfileData({...profileData, denomination: e.target.value})}
+                      placeholder="e.g., Non-denominational, Baptist, etc."
                     />
                   ) : (
-                    <p className="text-sm p-2 bg-muted/20 rounded">{profileData.denomination}</p>
+                    <p className="text-sm p-2 bg-muted/20 rounded">{profileData.denomination || 'Not set'}</p>
                   )}
                 </div>
               </div>
@@ -230,13 +377,15 @@ const ProfilePage = () => {
                 {isEditing ? (
                   <Textarea
                     id="bio"
-                    rows={3}
                     value={profileData.bio}
                     onChange={(e) => setProfileData({...profileData, bio: e.target.value})}
-                    placeholder="Tell us about yourself..."
+                    placeholder="Tell others about yourself and your faith journey..."
+                    className="min-h-[100px]"
                   />
                 ) : (
-                  <p className="text-sm p-3 bg-muted/20 rounded">{profileData.bio}</p>
+                  <p className="text-sm p-2 bg-muted/20 rounded min-h-[50px]">
+                    {profileData.bio || 'No bio added yet'}
+                  </p>
                 )}
               </div>
             </CardContent>

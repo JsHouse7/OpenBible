@@ -12,7 +12,13 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<{ error: AuthError | null }>
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>
-  updateProfile: (updates: { full_name?: string; avatar_url?: string }) => Promise<{ error: AuthError | null }>
+  updateProfile: (updates: { 
+    full_name?: string; 
+    avatar_url?: string; 
+    bio?: string; 
+    location?: string; 
+    denomination?: string; 
+  }) => Promise<{ error: AuthError | null }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -162,7 +168,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const updateProfile = async (updates: { full_name?: string; avatar_url?: string }) => {
+  const updateProfile = async (updates: { 
+    full_name?: string; 
+    avatar_url?: string; 
+    bio?: string; 
+    location?: string; 
+    denomination?: string; 
+  }) => {
     if (!isSupabaseConfigured()) {
       return { error: { message: 'Authentication not configured' } as AuthError }
     }
