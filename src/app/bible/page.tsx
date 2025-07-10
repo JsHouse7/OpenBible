@@ -8,8 +8,9 @@ import { useAuth } from '@/components/AuthProvider'
 import { progressService } from '@/lib/database'
 
 export default function BiblePage() {
-  const [currentBook, setCurrentBook] = useState('John')
-  const [currentChapter, setCurrentChapter] = useState(3)
+  const [currentBook, setCurrentBook] = useState('')
+  const [currentChapter, setCurrentChapter] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
   const [showBookSelector, setShowBookSelector] = useState(false)
   const [showChapterSelector, setShowChapterSelector] = useState(false)
   const { user } = useAuth()
@@ -62,9 +63,11 @@ export default function BiblePage() {
   // Load user's last reading position
   useEffect(() => {
     const loadLastReadingPosition = async () => {
-      if (user) {
-        // If user is logged in, load from database
-        try {
+      setIsLoading(true)
+      
+      try {
+        if (user) {
+          // If user is logged in, load from database
           const { data } = await progressService.getUserProgress(user.id)
           
           if (data && data.length > 0) {
@@ -72,22 +75,31 @@ export default function BiblePage() {
             const lastRead = data[0]
             setCurrentBook(lastRead.book)
             setCurrentChapter(lastRead.chapter)
+          } else {
+            // No saved position, set default
+            setCurrentBook('John')
+            setCurrentChapter(3)
           }
-        } catch (error) {
-          console.error('Error loading reading position:', error)
-        }
-      } else {
-        // If not logged in, load from localStorage
-        const savedPosition = localStorage.getItem('openbible-last-position')
-        if (savedPosition) {
-          try {
+        } else {
+          // If not logged in, load from localStorage
+          const savedPosition = localStorage.getItem('openbible-last-position')
+          if (savedPosition) {
             const { book, chapter } = JSON.parse(savedPosition)
             setCurrentBook(book)
             setCurrentChapter(chapter)
-          } catch (error) {
-            console.error('Error parsing saved position:', error)
+          } else {
+            // No saved position, set default
+            setCurrentBook('John')
+            setCurrentChapter(3)
           }
         }
+      } catch (error) {
+        console.error('Error loading reading position:', error)
+        // Set default values on error
+        setCurrentBook('John')
+        setCurrentChapter(3)
+      } finally {
+        setIsLoading(false)
       }
     }
     
@@ -115,13 +127,31 @@ export default function BiblePage() {
 
   return (
     <>
-      <BibleReader 
-        book={currentBook}
-        chapter={currentChapter}
-        onNavigate={handleNavigate}
-        onBookClick={handleBookClick}
-        onChapterClick={handleChapterClick}
-      />
+      {isLoading ? (
+        <div className="max-w-4xl mx-auto px-4 py-12">
+          <div className="flex items-center justify-center">
+            <div className="text-center animate-in fade-in-0 duration-500">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground text-lg">
+                Loading your Bible...
+              </p>
+              <div className="flex justify-center gap-1 mt-4">
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0ms]"></div>
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:150ms]"></div>
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:300ms]"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <BibleReader 
+          book={currentBook}
+          chapter={currentChapter}
+          onNavigate={handleNavigate}
+          onBookClick={handleBookClick}
+          onChapterClick={handleChapterClick}
+        />
+      )
 
       {showBookSelector && (
         <BookSelector
