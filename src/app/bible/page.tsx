@@ -151,7 +151,7 @@ export default function BiblePage() {
           onBookClick={handleBookClick}
           onChapterClick={handleChapterClick}
         />
-      )
+      )}
 
       {showBookSelector && (
         <BookSelector
