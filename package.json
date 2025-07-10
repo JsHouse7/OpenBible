@@ -4,7 +4,7 @@
   "private": true,
   "description": "A free, open-source Bible study app with note-taking and classic Christian literature",
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
