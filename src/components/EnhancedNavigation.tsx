@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { useTheme } from '@/components/ThemeProvider'
+import { useAuth } from '@/components/AuthProvider'
+import { bibleService } from '@/lib/database'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -34,7 +36,11 @@ const EnhancedNavigation = () => {
   const [searchOpen, setSearchOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isSearching, setIsSearching] = useState(false)
   const { theme, setTheme } = useTheme()
+  const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -93,6 +99,53 @@ const EnhancedNavigation = () => {
       case 'dark': return <Moon className="h-4 w-4" />
       case 'system': return <Monitor className="h-4 w-4" />
     }
+  }
+
+  const getUserDisplayName = () => {
+    if (!user) return 'Guest'
+    return user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+  }
+
+  const getUserInitials = () => {
+    const name = getUserDisplayName()
+    if (name === 'Guest') return 'G'
+    return name.split(' ').map((word: string) => word[0]).join('').toUpperCase().slice(0, 2)
+  }
+
+  // Search functionality
+  useEffect(() => {
+    const searchVerses = async () => {
+      if (!searchQuery.trim() || searchQuery.length < 3) {
+        setSearchResults([])
+        return
+      }
+
+      setIsSearching(true)
+      try {
+        const { data, error } = await bibleService.searchVerses(searchQuery, 'KJV', 10)
+        if (!error && data) {
+          setSearchResults(data)
+        } else {
+          setSearchResults([])
+        }
+      } catch (error) {
+        console.error('Search error:', error)
+        setSearchResults([])
+      } finally {
+        setIsSearching(false)
+      }
+    }
+
+    const debounceTimer = setTimeout(searchVerses, 300)
+    return () => clearTimeout(debounceTimer)
+  }, [searchQuery])
+
+  const handleSearchSelect = (result: any) => {
+    setSearchOpen(false)
+    setSearchQuery('')
+    setSearchResults([])
+    // Navigate to the verse
+    router.push(`/reader?book=${result.book}&chapter=${result.chapter}&verse=${result.verse}`)
   }
 
   return (
@@ -261,8 +314,10 @@ const EnhancedNavigation = () => {
                     <Command className="border-0">
                       <div className="p-4 md:p-6 border-b">
                         <CommandInput 
-                          placeholder="Type to search..." 
+                          placeholder="Search Bible verses..." 
                           className="h-12 text-base bg-muted/30 border-0 rounded-xl px-4"
+                          value={searchQuery}
+                          onValueChange={setSearchQuery}
                         />
                       </div>
                       <CommandList className="max-h-[60vh] overflow-y-auto">
@@ -271,86 +326,101 @@ const EnhancedNavigation = () => {
                             <div className="p-3 md:p-4 bg-muted/30 rounded-full mb-3 md:mb-4">
                               <Search className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground" />
                             </div>
-                            <p className="text-sm md:text-base font-medium text-muted-foreground">No results found</p>
-                            <p className="text-xs md:text-sm text-muted-foreground mt-1">Try different keywords</p>
+                            <p className="text-sm md:text-base font-medium text-muted-foreground">
+                              {isSearching ? 'Searching...' : searchQuery.length < 3 ? 'Type at least 3 characters to search' : 'No results found'}
+                            </p>
+                            <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                              {!isSearching && searchQuery.length >= 3 && 'Try different keywords'}
+                            </p>
                           </div>
                         </CommandEmpty>
                         
                         <div className="p-2 md:p-4">
-                          {/* Bible Books Section */}
-                          <CommandGroup>
-                            <div className="flex items-center gap-2 px-3 py-2 md:py-3 mb-2 md:mb-3">
-                              <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
-                              <span className="font-medium md:font-semibold text-sm md:text-base text-foreground">Bible Books</span>
-                            </div>
-                            {quickSearchItems.filter(item => item.type === 'book').map((item, index) => (
-                              <CommandItem 
-                                key={index} 
-                                onSelect={() => setSearchOpen(false)}
-                                className="mx-2 mb-2 p-3 md:p-4 rounded-lg md:rounded-xl hover:bg-muted/50 cursor-pointer"
-                              >
-                                <div className="flex items-center gap-3 md:gap-4 w-full">
-                                  <div className="p-2 md:p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg md:rounded-xl">
-                                    <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
+                          {/* Search Results */}
+                          {searchResults.length > 0 && (
+                            <CommandGroup>
+                              <div className="flex items-center gap-2 px-3 py-2 md:py-3 mb-2 md:mb-3">
+                                <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
+                                <span className="font-medium md:font-semibold text-sm md:text-base text-foreground">Search Results</span>
+                              </div>
+                              {searchResults.map((result, index) => (
+                                <CommandItem 
+                                  key={index} 
+                                  onSelect={() => handleSearchSelect(result)}
+                                  className="mx-2 mb-2 p-3 md:p-4 rounded-lg md:rounded-xl hover:bg-muted/50 cursor-pointer"
+                                >
+                                  <div className="flex items-start gap-3 md:gap-4 w-full">
+                                    <div className="p-2 md:p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg md:rounded-xl flex-shrink-0">
+                                      <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium md:font-semibold text-foreground mb-1">
+                                        {result.book} {result.chapter}:{result.verse}
+                                      </div>
+                                      <div className="text-sm text-muted-foreground line-clamp-2">
+                                        {result.text}
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className="flex-1">
-                                    <div className="font-medium md:font-semibold text-foreground">{item.title}</div>
-                                    <div className="text-sm text-muted-foreground">{item.description}</div>
-                                  </div>
-                                </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          )}
 
-                          {/* Literature Section */}
-                          <CommandGroup>
-                            <div className="flex items-center gap-2 px-3 py-2 md:py-3 mb-2 md:mb-3 mt-4 md:mt-6">
-                              <Library className="h-4 w-4 md:h-5 md:w-5 text-purple-600 dark:text-purple-400" />
-                              <span className="font-medium md:font-semibold text-sm md:text-base text-foreground">Christian Literature</span>
-                            </div>
-                            {quickSearchItems.filter(item => item.type === 'literature').map((item, index) => (
-                              <CommandItem 
-                                key={index} 
-                                onSelect={() => setSearchOpen(false)}
-                                className="mx-2 mb-2 p-3 md:p-4 rounded-lg md:rounded-xl hover:bg-muted/50 cursor-pointer"
-                              >
-                                <div className="flex items-center gap-3 md:gap-4 w-full">
-                                  <div className="p-2 md:p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg md:rounded-xl">
-                                    <Library className="h-4 w-4 md:h-5 md:w-5 text-purple-600 dark:text-purple-400" />
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="font-medium md:font-semibold text-foreground">{item.title}</div>
-                                    <div className="text-sm text-muted-foreground">{item.description}</div>
-                                  </div>
+                          {/* Default suggestions when no search query */}
+                          {!searchQuery.trim() && (
+                            <>
+                              {/* Bible Books Section */}
+                              <CommandGroup>
+                                <div className="flex items-center gap-2 px-3 py-2 md:py-3 mb-2 md:mb-3">
+                                  <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
+                                  <span className="font-medium md:font-semibold text-sm md:text-base text-foreground">Bible Books</span>
                                 </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
+                                {quickSearchItems.filter(item => item.type === 'book').map((item, index) => (
+                                  <CommandItem 
+                                    key={index} 
+                                    onSelect={() => setSearchOpen(false)}
+                                    className="mx-2 mb-2 p-3 md:p-4 rounded-lg md:rounded-xl hover:bg-muted/50 cursor-pointer"
+                                  >
+                                    <div className="flex items-center gap-3 md:gap-4 w-full">
+                                      <div className="p-2 md:p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg md:rounded-xl">
+                                        <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="font-medium md:font-semibold text-foreground">{item.title}</div>
+                                        <div className="text-sm text-muted-foreground">{item.description}</div>
+                                      </div>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
 
-                          {/* Popular Verses Section */}
-                          <CommandGroup>
-                            <div className="flex items-center gap-2 px-3 py-2 md:py-3 mb-2 md:mb-3 mt-4 md:mt-6">
-                              <Star className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
-                              <span className="font-medium md:font-semibold text-sm md:text-base text-foreground">Popular Verses</span>
-                            </div>
-                            {quickSearchItems.filter(item => item.type === 'verse').map((item, index) => (
-                              <CommandItem 
-                                key={index} 
-                                onSelect={() => setSearchOpen(false)}
-                                className="mx-2 mb-2 p-3 md:p-4 rounded-lg md:rounded-xl hover:bg-muted/50 cursor-pointer"
-                              >
-                                <div className="flex items-center gap-3 md:gap-4 w-full">
-                                  <div className="p-2 md:p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg md:rounded-xl">
-                                    <Star className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="font-medium md:font-semibold text-foreground">{item.title}</div>
-                                    <div className="text-sm text-muted-foreground">{item.description}</div>
-                                  </div>
+                              {/* Popular Verses Section */}
+                              <CommandGroup>
+                                <div className="flex items-center gap-2 px-3 py-2 md:py-3 mb-2 md:mb-3 mt-4 md:mt-6">
+                                  <Star className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
+                                  <span className="font-medium md:font-semibold text-sm md:text-base text-foreground">Popular Verses</span>
                                 </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
+                                {quickSearchItems.filter(item => item.type === 'verse').map((item, index) => (
+                                  <CommandItem 
+                                    key={index} 
+                                    onSelect={() => setSearchOpen(false)}
+                                    className="mx-2 mb-2 p-3 md:p-4 rounded-lg md:rounded-xl hover:bg-muted/50 cursor-pointer"
+                                  >
+                                    <div className="flex items-center gap-3 md:gap-4 w-full">
+                                      <div className="p-2 md:p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg md:rounded-xl">
+                                        <Star className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="font-medium md:font-semibold text-foreground">{item.title}</div>
+                                        <div className="text-sm text-muted-foreground">{item.description}</div>
+                                      </div>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </>
+                          )}
                         </div>
                       </CommandList>
                     </Command>
@@ -383,13 +453,23 @@ const EnhancedNavigation = () => {
                 <SheetTrigger asChild>
                   <Button variant="ghost" className="relative">
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback>OB</AvatarFallback>
+                      <AvatarImage src={user?.user_metadata?.avatar_url} />
+                      <AvatarFallback>{getUserInitials()}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </SheetTrigger>
                 <SheetContent>
                   <SheetHeader>
-                    <SheetTitle>User Menu</SheetTitle>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={user?.user_metadata?.avatar_url} />
+                        <AvatarFallback>{getUserInitials()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <SheetTitle>{getUserDisplayName()}</SheetTitle>
+                        <p className="text-sm text-muted-foreground">{user?.email || 'Not signed in'}</p>
+                      </div>
+                    </div>
                   </SheetHeader>
                   <div className="mt-6 space-y-2">
                     <Button 
@@ -448,4 +528,4 @@ const EnhancedNavigation = () => {
   )
 }
 
-export default EnhancedNavigation 
+export default EnhancedNavigation
