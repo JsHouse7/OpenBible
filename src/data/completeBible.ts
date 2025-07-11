@@ -113,20 +113,20 @@ const cleanVerseText = (text: string): string => {
 }
 
 // Function to convert chapter data to our verse format
-const convertChapterToVerses = (chapterData: ChapterData): BibleVerse[] => {
+const convertChapterToVerses = (chapterData: ChapterData, translation: string = 'KJV'): BibleVerse[] => {
   return chapterData.verses.map(verse => ({
     id: `${verse.book_name.toLowerCase().replace(/\s+/g, '-')}-${verse.chapter}-${verse.verse}`,
     book: verse.book_name,
     chapter: verse.chapter,
     verse: verse.verse,
     text: cleanVerseText(verse.text),
-    translation: 'KJV'
+    translation
   }))
 }
 
 // Load chapter data dynamically from JSON files
-export const loadChapterData = async (book: string, chapter: number): Promise<BibleVerse[]> => {
-  const cacheKey = createCacheKey(book, chapter)
+export const loadChapterData = async (book: string, chapter: number, translation: string = 'KJV'): Promise<BibleVerse[]> => {
+  const cacheKey = `${translation}-${createCacheKey(book, chapter)}`
   
   // Check cache first
   if (chapterCache.has(cacheKey)) {
@@ -135,23 +135,25 @@ export const loadChapterData = async (book: string, chapter: number): Promise<Bi
 
   try {
     // Build the file path for the JSON data (public directory)
-    const filePath = `/bible-json/${book}/${chapter}.json`
+    // For WEB translation, use the bible-json-web directory
+    const basePath = translation === 'WEB' ? '/bible-json-web' : '/bible-json'
+    const filePath = `${basePath}/${book}/${chapter}.json`
     
     // Load the JSON file
     const response = await fetch(filePath)
     if (!response.ok) {
-      throw new Error(`Failed to load ${book} ${chapter}: ${response.status}`)
+      throw new Error(`Failed to load ${book} ${chapter} (${translation}): ${response.status}`)
     }
     
     const chapterData: ChapterData = await response.json()
-    const verses = convertChapterToVerses(chapterData)
+    const verses = convertChapterToVerses(chapterData, translation)
     
     // Cache the result
     chapterCache.set(cacheKey, verses)
     return verses
 
   } catch (error) {
-    console.error(`Error loading ${book} ${chapter}:`, error)
+    console.error(`Error loading ${book} ${chapter} (${translation}):`, error)
     
     // Fallback to placeholder data if file loading fails
     const placeholderVerses: BibleVerse[] = [
@@ -160,8 +162,8 @@ export const loadChapterData = async (book: string, chapter: number): Promise<Bi
         book,
         chapter,
         verse: 1,
-        text: `Loading ${book} chapter ${chapter}... Please refresh if this persists.`,
-        translation: 'KJV'
+        text: `Loading ${book} chapter ${chapter} (${translation})... Please refresh if this persists.`,
+        translation
       }
     ]
     
@@ -170,13 +172,13 @@ export const loadChapterData = async (book: string, chapter: number): Promise<Bi
 }
 
 // Get verses for a specific chapter (main function used by components)
-export const getChapterVerses = async (book: string, chapter: number): Promise<BibleVerse[]> => {
-  return loadChapterData(book, chapter)
+export const getChapterVerses = async (book: string, chapter: number, translation: string = 'KJV'): Promise<BibleVerse[]> => {
+  return loadChapterData(book, chapter, translation)
 }
 
 // Get a specific verse
-export const getVerse = async (book: string, chapter: number, verse: number): Promise<BibleVerse | undefined> => {
-  const verses = await loadChapterData(book, chapter)
+export const getVerse = async (book: string, chapter: number, verse: number, translation: string = 'KJV'): Promise<BibleVerse | undefined> => {
+  const verses = await loadChapterData(book, chapter, translation)
   return verses.find(v => v.verse === verse)
 }
 
@@ -186,7 +188,7 @@ export const getBooksByTestament = (testament: 'old' | 'new') => {
 }
 
 // Search function (basic implementation)
-export const searchVerses = async (query: string, limit: number = 20): Promise<BibleVerse[]> => {
+export const searchVerses = async (query: string, limit: number = 20, translation: string = 'KJV'): Promise<BibleVerse[]> => {
   // For now, return sample search results
   // We'll implement full search when all data is loaded
   const searchResults: BibleVerse[] = []
@@ -206,4 +208,4 @@ export const searchVerses = async (query: string, limit: number = 20): Promise<B
 }
 
 // Export the complete book list for compatibility
-export { COMPLETE_BIBLE_BOOKS as BIBLE_BOOKS } 
+export { COMPLETE_BIBLE_BOOKS as BIBLE_BOOKS }

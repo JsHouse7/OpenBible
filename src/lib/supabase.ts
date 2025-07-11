@@ -10,6 +10,27 @@ export const isSupabaseConfigured = () => {
          supabaseUrl.includes('supabase.co')
 }
 
+// Mock query builder for development
+const createMockQueryBuilder = () => {
+  const mockBuilder = {
+    select: (columns?: string) => mockBuilder,
+    insert: (data: any) => mockBuilder,
+    update: (data: any) => mockBuilder,
+    delete: () => mockBuilder,
+    upsert: (data: any, options?: any) => mockBuilder,
+    eq: (column: string, value: any) => mockBuilder,
+    order: (column: string, options?: any) => mockBuilder,
+    limit: (count: number) => mockBuilder,
+    single: () => mockBuilder,
+    textSearch: (column: string, query: string) => mockBuilder,
+    then: (resolve: Function) => {
+      // Return empty data for all queries in development
+      return Promise.resolve({ data: [], error: null }).then(resolve)
+    }
+  }
+  return mockBuilder
+}
+
 // Only create client if we have valid values, otherwise create a mock client
 export const supabase = isSupabaseConfigured() 
   ? createClient(supabaseUrl, supabaseAnonKey, {
@@ -25,12 +46,7 @@ export const supabase = isSupabaseConfigured()
         signIn: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
         signOut: () => Promise.resolve({ error: null })
       },
-      from: () => ({
-        select: () => Promise.resolve({ data: [], error: null }),
-        insert: () => Promise.resolve({ data: null, error: null }),
-        update: () => Promise.resolve({ data: null, error: null }),
-        delete: () => Promise.resolve({ data: null, error: null })
-      })
+      from: (table: string) => createMockQueryBuilder()
     }
 
 // Database types
@@ -71,4 +87,4 @@ export interface ReadingProgress {
   book: string
   chapter: number
   last_read_at: string
-} 
+}

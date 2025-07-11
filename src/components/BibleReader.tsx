@@ -7,6 +7,7 @@ import { VerseComponent } from '@/components/VerseComponent'
 import { ScriptureHeader } from '@/components/ScriptureHeader'
 import { NoteModal } from '@/components/NoteModal'
 import { useAnimations } from '@/components/AnimationProvider'
+import { useBibleVersion } from '@/components/BibleVersionProvider'
 import { cn } from '@/lib/utils'
 import { loadChapterData, COMPLETE_BIBLE_BOOKS } from '@/data/completeBible'
 import type { BibleVerse } from '@/data/completeBible'
@@ -43,6 +44,7 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
 
   // Get current book info
   const currentBookInfo = COMPLETE_BIBLE_BOOKS.find(b => b.name === book)
+  const { selectedVersion, isLoading: isTranslationLoading } = useBibleVersion()
   
   // Load verses for current book and chapter
   useEffect(() => {
@@ -50,7 +52,7 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
       try {
         setLoading(true)
         setError(null)
-        const verses = await loadChapterData(book, chapter)
+        const verses = await loadChapterData(book, chapter, selectedVersion.abbreviation)
         setVerses(verses)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load chapter')
@@ -61,7 +63,7 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
     }
 
     loadVerses()
-  }, [book, chapter])
+  }, [book, chapter, selectedVersion.abbreviation])
 
   // Load saved data from localStorage
   useEffect(() => {
@@ -176,6 +178,26 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
   const canGoNext = (currentBookInfo && chapter < currentBookInfo.chapters) || 
                    COMPLETE_BIBLE_BOOKS.findIndex(b => b.name === book) < COMPLETE_BIBLE_BOOKS.length - 1
 
+  if (isTranslationLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-12">
+        <div className="flex items-center justify-center">
+          <div className={cn("text-center", "animate-in fade-in-0 duration-500")}>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className={cn("text-muted-foreground text-lg", getTransitionClass('default'))}>
+              Loading Bible translations...
+            </p>
+            <div className="flex justify-center gap-1 mt-4">
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0ms]"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:150ms]"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:300ms]"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12">
@@ -183,7 +205,7 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
           <div className={cn("text-center", "animate-in fade-in-0 duration-500")}>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
             <p className={cn("text-muted-foreground text-lg", getTransitionClass('default'))}>
-              Loading {book} {chapter}...
+              Loading {book} {chapter} ({selectedVersion.abbreviation})...
             </p>
             <div className="flex justify-center gap-1 mt-4">
               <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0ms]"></div>
@@ -278,4 +300,4 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
       />
     </>
   )
-} 
+}

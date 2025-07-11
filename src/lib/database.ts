@@ -1,8 +1,24 @@
 import { supabase } from './supabase'
-import type { Bible, UserNote, Bookmark, ReadingProgress } from './supabase'
 
 // Bible Content Services
 export const bibleService = {
+  // Get available translations
+  async getAvailableTranslations() {
+    const { data, error } = await supabase
+      .from('bible_verses')
+      .select('translation')
+      .order('translation')
+
+    if (error) {
+      console.error('Error fetching translations:', error)
+      return { data: null, error }
+    }
+
+    // Remove duplicates
+    const uniqueTranslations = [...new Set(data?.map(item => item.translation) || [])]
+    return { data: uniqueTranslations, error: null }
+  },
+
   // Get chapter content
   async getChapter(book: string, chapter: number, translation = 'KJV') {
     const { data, error } = await supabase
@@ -413,4 +429,4 @@ export const analyticsService = {
       return { data: null, error }
     }
   }
-} 
+}
