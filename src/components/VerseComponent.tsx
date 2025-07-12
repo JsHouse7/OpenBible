@@ -23,9 +23,10 @@ interface VerseComponentProps {
   hasNote: boolean
   isHighlighted: boolean
   isBookmarked: boolean
+  highlightColor?: string
   onSelect: (verse: BibleVerse) => void
   onAddNote: (verse: BibleVerse) => void
-  onToggleHighlight: (verse: BibleVerse) => void
+  onToggleHighlight: (color?: string) => void
   onToggleBookmark: (verse: BibleVerse) => void
 }
 
@@ -35,13 +36,23 @@ export function VerseComponent({
   hasNote,
   isHighlighted,
   isBookmarked,
+  highlightColor = 'yellow',
   onSelect,
   onAddNote,
   onToggleHighlight,
   onToggleBookmark,
 }: VerseComponentProps) {
   const [showActions, setShowActions] = useState(false)
+  const [showColorPicker, setShowColorPicker] = useState(false)
   const { getTransitionClass, isAnimationEnabled } = useAnimations()
+
+  const highlightColors = [
+    { name: 'Yellow', value: 'yellow', bg: 'bg-yellow-200', text: 'text-yellow-800' },
+    { name: 'Blue', value: 'blue', bg: 'bg-blue-200', text: 'text-blue-800' },
+    { name: 'Green', value: 'green', bg: 'bg-green-200', text: 'text-green-800' },
+    { name: 'Pink', value: 'pink', bg: 'bg-pink-200', text: 'text-pink-800' },
+    { name: 'Purple', value: 'purple', bg: 'bg-purple-200', text: 'text-purple-800' },
+  ]
 
   const handleVerseClick = () => {
     if (isSelected) {
@@ -55,7 +66,35 @@ export function VerseComponent({
   const handleActionClick = (action: () => void) => {
     action()
     setShowActions(false)
+    setShowColorPicker(false)
     onSelect(verse) // Keep verse selected after action
+  }
+
+  const handleHighlightClick = () => {
+    if (isHighlighted) {
+      onToggleHighlight()
+      setShowActions(false)
+      setShowColorPicker(false)
+    } else {
+      setShowColorPicker(!showColorPicker)
+    }
+  }
+
+  const handleColorSelect = (color: string) => {
+    onToggleHighlight(color)
+    setShowActions(false)
+    setShowColorPicker(false)
+  }
+
+  const getHighlightStyles = (color: string) => {
+    const colorMap = {
+      yellow: 'bg-yellow-50/80 dark:bg-yellow-950/20 border-yellow-200/60 dark:border-yellow-800/40',
+      blue: 'bg-blue-50/80 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-800/40',
+      green: 'bg-green-50/80 dark:bg-green-950/20 border-green-200/60 dark:border-green-800/40',
+      pink: 'bg-pink-50/80 dark:bg-pink-950/20 border-pink-200/60 dark:border-pink-800/40',
+      purple: 'bg-purple-50/80 dark:bg-purple-950/20 border-purple-200/60 dark:border-purple-800/40',
+    }
+    return colorMap[color as keyof typeof colorMap] || colorMap.yellow
   }
 
   return (
@@ -68,7 +107,7 @@ export function VerseComponent({
           isAnimationEnabled('button') && "dark:hover:bg-muted/20 dark:focus-within:bg-muted/20",
           isAnimationEnabled('button') && "hover:scale-[1.01] hover:shadow-sm",
           isSelected && "bg-blue-50/80 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40 shadow-sm scale-[1.01]",
-          isHighlighted && "bg-yellow-50/80 dark:bg-yellow-950/20 border border-yellow-200/60 dark:border-yellow-800/40",
+          isHighlighted && `border ${getHighlightStyles(highlightColor)}`,
           !isSelected && !isHighlighted && "border border-transparent"
         )}
         onClick={handleVerseClick}
@@ -123,24 +162,52 @@ export function VerseComponent({
             {hasNote ? "Edit Note" : "Add Note"}
           </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleActionClick(() => onToggleHighlight(verse))}
-            className={cn(
-              "flex items-center gap-2 text-sm h-8 px-3 border border-yellow-200/50 dark:border-yellow-800/30",
-              isAnimationEnabled('button') && "hover:scale-105 active:scale-95",
-              getTransitionClass('fast', 'button'),
-              isHighlighted 
-                ? cn("bg-yellow-100 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-300",
-                     isAnimationEnabled('button') && "hover:bg-yellow-200 dark:hover:bg-yellow-950/70")
-                : cn("bg-yellow-50 dark:bg-yellow-950/20 text-yellow-600 dark:text-yellow-400",
-                     isAnimationEnabled('button') && "hover:bg-yellow-100 dark:hover:bg-yellow-950/40")
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleHighlightClick}
+              className={cn(
+                "flex items-center gap-2 text-sm h-8 px-3 border border-yellow-200/50 dark:border-yellow-800/30",
+                isAnimationEnabled('button') && "hover:scale-105 active:scale-95",
+                getTransitionClass('fast', 'button'),
+                isHighlighted 
+                  ? cn("bg-yellow-100 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-300",
+                       isAnimationEnabled('button') && "hover:bg-yellow-200 dark:hover:bg-yellow-950/70")
+                  : cn("bg-yellow-50 dark:bg-yellow-950/20 text-yellow-600 dark:text-yellow-400",
+                       isAnimationEnabled('button') && "hover:bg-yellow-100 dark:hover:bg-yellow-950/40")
+              )}
+            >
+              <Highlighter className="h-4 w-4" />
+              {isHighlighted ? "Remove Highlight" : "Highlight"}
+            </Button>
+
+            {/* Color Picker */}
+            {showColorPicker && !isHighlighted && (
+              <div className={cn(
+                "absolute top-full left-0 mt-1 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10",
+                isAnimationEnabled('modal') && "animate-in slide-in-from-top-2 fade-in-0 duration-200"
+              )}>
+                <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Choose color:</div>
+                <div className="flex gap-1">
+                  {highlightColors.map((color) => (
+                    <button
+                      key={color.value}
+                      onClick={() => handleColorSelect(color.value)}
+                      className={cn(
+                        "w-6 h-6 rounded-full border-2 border-white dark:border-gray-700 shadow-sm",
+                        color.bg,
+                        isAnimationEnabled('button') && "hover:scale-110 active:scale-95",
+                        getTransitionClass('fast', 'button')
+                      )}
+                      title={color.name}
+                      aria-label={`Highlight with ${color.name.toLowerCase()}`}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
-          >
-            <Highlighter className="h-4 w-4" />
-            {isHighlighted ? "Remove Highlight" : "Highlight"}
-          </Button>
+          </div>
 
           <Button
             variant="ghost"
@@ -164,4 +231,4 @@ export function VerseComponent({
       )}
     </div>
   )
-} 
+}

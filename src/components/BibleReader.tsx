@@ -8,8 +8,10 @@ import { ScriptureHeader } from '@/components/ScriptureHeader'
 import { NoteModal } from '@/components/NoteModal'
 import { useAnimations } from '@/components/AnimationProvider'
 import { useBibleVersion } from '@/components/BibleVersionProvider'
+import { useAuth } from '@/components/AuthProvider'
 import { cn } from '@/lib/utils'
 import { loadChapterData, COMPLETE_BIBLE_BOOKS } from '@/data/completeBible'
+import { notesService, highlightsService, bookmarksService } from '@/lib/database'
 import type { BibleVerse } from '@/data/completeBible'
 
 interface Note {
@@ -35,10 +37,12 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { getTransitionClass } = useAnimations()
+  const { user } = useAuth()
   const [selectedVerse, setSelectedVerse] = useState<BibleVerse | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [highlights, setHighlights] = useState<Set<string>>(new Set())
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set())
+  const [highlightColors, setHighlightColors] = useState<Map<string, string>>(new Map())
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
   const [noteVerse, setNoteVerse] = useState<BibleVerse | null>(null)
 
@@ -65,16 +69,67 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
     loadVerses()
   }, [book, chapter, selectedVersion.abbreviation])
 
-  // Load saved data from localStorage
+  // Load user data from database
   useEffect(() => {
-    const savedNotes = localStorage.getItem("openbible-notes")
-    const savedHighlights = localStorage.getItem("openbible-highlights")
-    const savedBookmarks = localStorage.getItem("openbible-bookmarks")
+    const loadUserData = async () => {
+      if (!user?.id) {
+        // Clear data if user is not authenticated
+        setNotes([])
+        setHighlights(new Set())
+        setBookmarks(new Set())
+        setHighlightColors(new Map())
+        return
+      }
 
-    if (savedNotes) setNotes(JSON.parse(savedNotes))
-    if (savedHighlights) setHighlights(new Set(JSON.parse(savedHighlights)))
-    if (savedBookmarks) setBookmarks(new Set(JSON.parse(savedBookmarks)))
-  }, [])
+      try {
+        // Load notes for current chapter
+        const { data: notesData } = await notesService.getUserNotes(user.id)
+        if (notesData) {
+          const chapterNotes = notesData.filter(note => 
+            note.book === book && note.chapter === chapter
+          ).map(note => ({
+            id: note.id,
+            verseId: `${note.book}-${note.chapter}-${note.verse}`,
+            text: note.content,
+            timestamp: note.created_at,
+            book: note.book,
+            chapter: note.chapter,
+            verse: note.verse
+          }))
+          setNotes(chapterNotes)
+        }
+
+        // Load highlights
+        const { data: highlightsData } = await highlightsService.getUserHighlights(user.id)
+        if (highlightsData) {
+          const highlightSet = new Set<string>()
+          const colorMap = new Map<string, string>()
+          
+          highlightsData.forEach(highlight => {
+            const key = `${highlight.book}-${highlight.chapter}-${highlight.verse}`
+            highlightSet.add(key)
+            colorMap.set(key, highlight.color)
+          })
+          
+          setHighlights(highlightSet)
+          setHighlightColors(colorMap)
+        }
+
+        // Load bookmarks
+        const { data: bookmarksData } = await bookmarksService.getUserBookmarks(user.id)
+        if (bookmarksData) {
+          const bookmarkSet = new Set(
+            bookmarksData.map(bookmark => `${bookmark.book}-${bookmark.chapter}-${bookmark.verse}`)
+          )
+          setBookmarks(bookmarkSet)
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error)
+      }
+    }
+
+    loadUserData()
+  }, [user, book, chapter])
 
   const handleVerseSelect = (verse: BibleVerse) => {
     setSelectedVerse(verse)
@@ -85,58 +140,146 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
     setIsNoteModalOpen(true)
   }
 
-  const handleSaveNote = (noteText: string) => {
-    if (!noteVerse) return
+  const handleSaveNote = async (noteText: string) => {
+    if (!noteVerse || !user?.id) return
 
-    const existingNote = notes.find(note => note.verseId === noteVerse.id)
-    
-    if (existingNote) {
-      // Update existing note
-      const updatedNotes = notes.map(note => 
-        note.verseId === noteVerse.id 
-          ? { ...note, text: noteText, timestamp: new Date().toISOString() }
-          : note
-      )
-      setNotes(updatedNotes)
-      localStorage.setItem("openbible-notes", JSON.stringify(updatedNotes))
-    } else {
-      // Create new note
-      const newNote: Note = {
-        id: Date.now().toString(),
-        verseId: noteVerse.id,
-        text: noteText,
-        timestamp: new Date().toISOString(),
-        book,
-        chapter,
-        verse: noteVerse.verse,
+    try {
+      const existingNote = notes.find(note => note.verseId === noteVerse.id)
+      
+      if (existingNote) {
+        // Update existing note
+        const { error } = await notesService.saveNote(
+          user.id,
+          book,
+          chapter,
+          noteVerse.verse,
+          noteText
+        )
+        
+        if (error) {
+          console.error('Error updating note:', error)
+          return
+        }
+        
+        const updatedNotes = notes.map(note => 
+          note.verseId === noteVerse.id 
+            ? { ...note, text: noteText, timestamp: new Date().toISOString() }
+            : note
+        )
+        setNotes(updatedNotes)
+      } else {
+        // Create new note
+        const { data, error } = await notesService.saveNote(
+          user.id,
+          book,
+          chapter,
+          noteVerse.verse,
+          noteText
+        )
+        
+        if (error) {
+          console.error('Error creating note:', error)
+          return
+        }
+        
+        const newNote: Note = {
+          id: data?.[0]?.id || Date.now().toString(),
+          verseId: noteVerse.id,
+          text: noteText,
+          timestamp: new Date().toISOString(),
+          book,
+          chapter,
+          verse: noteVerse.verse,
+        }
+
+        const updatedNotes = [...notes, newNote]
+        setNotes(updatedNotes)
       }
-
-      const updatedNotes = [...notes, newNote]
-      setNotes(updatedNotes)
-      localStorage.setItem("openbible-notes", JSON.stringify(updatedNotes))
+    } catch (error) {
+      console.error('Error saving note:', error)
     }
   }
 
-  const handleToggleHighlight = (verse: BibleVerse) => {
-    const newHighlights = new Set(highlights)
-    if (highlights.has(verse.id)) {
-      newHighlights.delete(verse.id)
-    } else {
-      newHighlights.add(verse.id)
+  const handleToggleHighlight = async (verse: BibleVerse, color: string = 'yellow') => {
+    if (!user?.id) {
+      console.warn('User not authenticated, cannot save highlight')
+      return
     }
-    setHighlights(newHighlights)
-    localStorage.setItem("openbible-highlights", JSON.stringify([...newHighlights]))
+
+    const key = `${book}-${chapter}-${verse.verse}`
+    const isHighlighted = highlights.has(verse.id)
+    
+    try {
+      if (isHighlighted) {
+        // Remove highlight
+        const { error } = await highlightsService.removeHighlight(user.id, book, chapter, verse.verse)
+        if (error) {
+          console.error('Error removing highlight:', error)
+          return
+        }
+        
+        const newHighlights = new Set(highlights)
+        const newColors = new Map(highlightColors)
+        newHighlights.delete(verse.id)
+        newColors.delete(key)
+        setHighlights(newHighlights)
+        setHighlightColors(newColors)
+      } else {
+        // Add highlight
+        const { error } = await highlightsService.addHighlight(user.id, book, chapter, verse.verse, color)
+        if (error) {
+          console.error('Error adding highlight:', error)
+          return
+        }
+        
+        const newHighlights = new Set(highlights)
+        const newColors = new Map(highlightColors)
+        newHighlights.add(verse.id)
+        newColors.set(key, color)
+        setHighlights(newHighlights)
+        setHighlightColors(newColors)
+      }
+    } catch (error) {
+      console.error('Error toggling highlight:', error)
+    }
   }
 
-  const handleToggleBookmark = (verse: BibleVerse) => {
-    const newBookmarks = new Set(bookmarks)
-    if (bookmarks.has(verse.id)) {
-      newBookmarks.delete(verse.id)
-    } else {
-      newBookmarks.add(verse.id)
+  const handleToggleBookmark = async (verse: BibleVerse) => {
+    if (!user?.id) {
+      console.warn('User not authenticated, cannot save bookmark')
+      return
     }
-    setBookmarks(newBookmarks)
-    localStorage.setItem("openbible-bookmarks", JSON.stringify([...newBookmarks]))
+
+    const key = `${book}-${chapter}-${verse.verse}`
+    const isBookmarked = bookmarks.has(verse.id)
+    
+    try {
+      if (isBookmarked) {
+        // Remove bookmark
+        const { error } = await bookmarksService.removeBookmark(user.id, book, chapter, verse.verse)
+        if (error) {
+          console.error('Error removing bookmark:', error)
+          return
+        }
+        
+        const newBookmarks = new Set(bookmarks)
+        newBookmarks.delete(verse.id)
+        setBookmarks(newBookmarks)
+      } else {
+        // Add bookmark
+        const { error } = await bookmarksService.addBookmark(user.id, book, chapter, verse.verse)
+        if (error) {
+          console.error('Error adding bookmark:', error)
+          return
+        }
+        
+        const newBookmarks = new Set(bookmarks)
+        newBookmarks.add(verse.id)
+        setBookmarks(newBookmarks)
+      }
+    } catch (error) {
+      console.error('Error toggling bookmark:', error)
+    }
   }
 
   const getVerseRange = (verses: BibleVerse[]) => {
@@ -273,7 +416,8 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
                 isBookmarked={bookmarks.has(verse.id)}
                 onSelect={handleVerseSelect}
                 onAddNote={handleAddNote}
-                onToggleHighlight={handleToggleHighlight}
+                onToggleHighlight={(color) => handleToggleHighlight(verse, color)}
+                highlightColor={highlightColors.get(`${book}-${chapter}-${verse.verse}`) || 'yellow'}
                 onToggleBookmark={handleToggleBookmark}
               />
             </div>

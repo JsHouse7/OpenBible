@@ -130,7 +130,7 @@ export function BibleVersionProvider({ children }: { children: React.ReactNode }
         } else {
           // Map database translations to full version objects
           const versionObjects = translations.map(code => {
-            const info = translationInfo[code] || {
+            const info = translationInfo[code as keyof typeof translationInfo] || {
               name: `${code} Translation`,
               abbreviation: code,
               language: 'Unknown',
@@ -138,7 +138,7 @@ export function BibleVersionProvider({ children }: { children: React.ReactNode }
             }
             
             return {
-              id: code.toLowerCase(),
+              id: (code as string).toLowerCase(),
               ...info
             }
           })

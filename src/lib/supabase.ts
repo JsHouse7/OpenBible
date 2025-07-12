@@ -25,7 +25,7 @@ const createMockQueryBuilder = () => {
     textSearch: (column: string, query: string) => mockBuilder,
     then: (resolve: Function) => {
       // Return empty data for all queries in development
-      return Promise.resolve({ data: [], error: null }).then(resolve)
+      return Promise.resolve({ data: [], error: null }).then((value) => resolve(value))
     }
   }
   return mockBuilder
