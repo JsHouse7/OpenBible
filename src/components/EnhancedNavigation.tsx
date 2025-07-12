@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { useTheme } from '@/components/ThemeProvider'
 import { useAuth } from '@/components/AuthProvider'
-import { bibleService } from '@/lib/database'
+import { bibleService, notesService, analyticsService } from '@/lib/database'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -39,6 +39,8 @@ const EnhancedNavigation = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [notesCount, setNotesCount] = useState(0)
+  const [notificationsCount, setNotificationsCount] = useState(0)
   const { theme, setTheme } = useTheme()
   const { user } = useAuth()
   const router = useRouter()
@@ -47,8 +49,8 @@ const EnhancedNavigation = () => {
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, badge: null, href: '/dashboard' },
     { id: 'bible', label: 'Bible Reader', icon: BookOpen, badge: null, href: '/bible' },
-    { id: 'literature', label: 'Literature', icon: Library, badge: 'New', href: '/literature' },
-    { id: 'notes', label: 'My Notes', icon: Star, badge: '12', href: '/notes' },
+    { id: 'literature', label: 'Literature', icon: Library, badge: null, href: '/literature' },
+    { id: 'notes', label: 'My Notes', icon: Star, badge: notesCount > 0 ? notesCount.toString() : null, href: '/notes' },
     { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark, badge: null, href: '/bookmarks' },
     { id: 'highlights', label: 'Highlights', icon: Heart, badge: null, href: '/highlights' },
     { id: 'progress', label: 'Progress', icon: TrendingUp, badge: null, href: '/progress' },
@@ -111,6 +113,33 @@ const EnhancedNavigation = () => {
     if (name === 'Guest') return 'G'
     return name.split(' ').map((word: string) => word[0]).join('').toUpperCase().slice(0, 2)
   }
+
+  // Fetch user data for dynamic counts
+  useEffect(() => {
+    const fetchUserCounts = async () => {
+      if (!user?.id) {
+        setNotesCount(0)
+        setNotificationsCount(0)
+        return
+      }
+
+      try {
+        // Fetch notes count
+        const notesResult = await notesService.getUserNotes(user.id)
+        setNotesCount(notesResult.data?.length || 0)
+
+        // For notifications, we'll use a simple calculation based on recent activity
+        // In a real app, you'd have a notifications table
+        const statsResult = await analyticsService.getUserStats(user.id)
+        const recentActivity = (statsResult.data?.totalNotes || 0) + (statsResult.data?.totalBookmarks || 0)
+        setNotificationsCount(Math.min(recentActivity, 9)) // Cap at 9 for UI
+      } catch (error) {
+        console.error('Error fetching user counts:', error)
+      }
+    }
+
+    fetchUserCounts()
+  }, [user])
 
   // Search functionality
   useEffect(() => {
@@ -244,9 +273,11 @@ const EnhancedNavigation = () => {
               {/* Notifications */}
               <Button variant="ghost" size="icon" className="relative h-9 w-9">
                 <Bell className="h-4 w-4" />
-                <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 text-[10px] p-0 flex items-center justify-center min-w-0">
-                  3
-                </Badge>
+                {notificationsCount > 0 && (
+                  <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 text-[10px] p-0 flex items-center justify-center min-w-0">
+                    {notificationsCount}
+                  </Badge>
+                )}
               </Button>
             </div>
           </div>
@@ -443,9 +474,11 @@ const EnhancedNavigation = () => {
               {/* Notifications */}
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-4 w-4" />
-                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 text-xs p-0 flex items-center justify-center">
-                  3
-                </Badge>
+                {notificationsCount > 0 && (
+                  <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 text-xs p-0 flex items-center justify-center">
+                    {notificationsCount}
+                  </Badge>
+                )}
               </Button>
 
               {/* User Menu */}

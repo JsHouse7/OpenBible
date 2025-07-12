@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useUserPreferences } from '@/components/UserPreferencesProvider'
 import { useAuth } from '@/components/AuthProvider'
-import { analyticsService } from '@/lib/database'
+import { analyticsService, progressService } from '@/lib/database'
 import { 
   BookOpen, 
   Clock, 
@@ -52,9 +53,11 @@ interface DashboardProps {
 const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
   const { preferences } = useUserPreferences()
   const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
   const [stats, setStats] = useState<ReadingStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [lastReadPosition, setLastReadPosition] = useState<{book: string, chapter: number} | null>(null)
 
   const [currentGoal, setCurrentGoal] = useState({
     type: 'chapters',
@@ -63,9 +66,9 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
     deadline: 'End of Month'
   })
 
-  // Fetch real user statistics
+  // Fetch real user statistics and reading progress
   useEffect(() => {
-    const fetchUserStats = async () => {
+    const fetchUserData = async () => {
       if (!user?.id) {
         setLoading(false)
         return
@@ -75,24 +78,37 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
         setLoading(true)
         setError(null)
         
-        const { data: userStats, error: statsError } = await analyticsService.getUserStats(user.id)
+        // Fetch user stats and reading progress in parallel
+        const [statsResult, progressResult] = await Promise.all([
+          analyticsService.getUserStats(user.id),
+          progressService.getUserProgress(user.id)
+        ])
         
-        if (statsError) {
-          console.error('Error fetching user stats:', statsError)
+        if (statsResult.error) {
+          console.error('Error fetching user stats:', statsResult.error)
           setError('Failed to load your statistics')
           return
+        }
+
+        // Get last read position
+        if (progressResult.data && progressResult.data.length > 0) {
+          const lastRead = progressResult.data[0] // Most recent reading
+          setLastReadPosition({
+            book: lastRead.book,
+            chapter: lastRead.chapter
+          })
         }
 
         // Transform database stats to component format
         const transformedStats: ReadingStats = {
           totalVersesRead: 0, // TODO: Implement verse tracking
-          totalChaptersRead: userStats?.booksRead || 0, // Using books read as proxy
-          totalBooksRead: userStats?.booksRead || 0,
-          currentStreak: userStats?.currentStreak || 0,
-          totalReadingTime: userStats?.totalReadingTime || 0,
-          notesCreated: userStats?.totalNotes || 0,
-          bookmarksCreated: userStats?.totalBookmarks || 0,
-          highlightsCreated: userStats?.totalHighlights || 0,
+          totalChaptersRead: progressResult.data?.length || 0,
+          totalBooksRead: statsResult.data?.booksRead || 0,
+          currentStreak: statsResult.data?.currentStreak || 0,
+          totalReadingTime: statsResult.data?.totalReadingTime || 0,
+          notesCreated: statsResult.data?.totalNotes || 0,
+          bookmarksCreated: statsResult.data?.totalBookmarks || 0,
+          highlightsCreated: statsResult.data?.totalHighlights || 0,
           favoriteBooks: [], // TODO: Calculate from reading progress
           recentActivity: [] // TODO: Implement activity tracking
         }
@@ -104,7 +120,7 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
         }))
 
       } catch (error) {
-        console.error('Error fetching stats:', error)
+        console.error('Error fetching user data:', error)
         setError('Failed to load your statistics')
       } finally {
         setLoading(false)
@@ -112,7 +128,7 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
     }
 
     if (!authLoading) {
-      fetchUserStats()
+      fetchUserData()
     }
   }, [user, authLoading])
 
@@ -152,6 +168,28 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
     const name = getUserDisplayName()
     if (name === 'Guest') return 'G'
     return name.split(' ').map((word: string) => word[0]).join('').toUpperCase().slice(0, 2)
+  }
+
+  const handleNavigation = (path: string) => {
+    if (onNavigate) {
+      onNavigate(path)
+    } else {
+      router.push(path)
+    }
+  }
+
+  const getContinueReadingText = () => {
+    if (lastReadPosition) {
+      return `Continue Reading ${lastReadPosition.book} ${lastReadPosition.chapter}`
+    }
+    return 'Start Reading'
+  }
+
+  const getContinueReadingPath = () => {
+    if (lastReadPosition) {
+      return `/bible?book=${encodeURIComponent(lastReadPosition.book)}&chapter=${lastReadPosition.chapter}`
+    }
+    return '/bible'
   }
 
   // Show loading state
@@ -520,15 +558,15 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
             <Button 
               className="justify-start bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800" 
               variant="ghost"
-              onClick={() => onNavigate?.('reader')}
+              onClick={() => handleNavigation(getContinueReadingPath())}
             >
               <BookOpen className="mr-2 h-4 w-4" />
-              Continue Reading John 3
+              {getContinueReadingText()}
             </Button>
             <Button 
               className="justify-start bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800" 
               variant="ghost"
-              onClick={() => onNavigate?.('reading-plans')}
+              onClick={() => handleNavigation('/reading-plans')}
             >
               <Calendar className="mr-2 h-4 w-4" />
               View Reading Plan
@@ -536,7 +574,7 @@ const Dashboard = ({ onNavigate }: DashboardProps = {}) => {
             <Button 
               className="justify-start bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800" 
               variant="ghost"
-              onClick={() => onNavigate?.('literature')}
+              onClick={() => handleNavigation('/literature')}
             >
               <Star className="mr-2 h-4 w-4" />
               Browse Literature
