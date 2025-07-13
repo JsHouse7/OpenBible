@@ -10,6 +10,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
+import { LiteratureReader } from '@/components/LiteratureReader'
+import { useFonts } from '@/hooks/useFonts'
+import { cn } from '@/lib/utils'
 import { 
   Search,
   BookOpen, 
@@ -49,38 +52,27 @@ interface Work {
 const LiteratureLibrary = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [selectedWork, setSelectedWork] = useState<string | null>(null)
+  const { getUITextClasses, getHeadingClasses } = useFonts()
 
   const authors: Author[] = [
     {
-      id: 'cs-lewis',
-      name: 'C.S. Lewis',
-      bio: 'British writer, lay theologian, and Christian apologist known for The Chronicles of Narnia and Mere Christianity.',
-      period: '1898-1963',
+      id: 'ch-spurgeon',
+      name: 'Charles Haddon Spurgeon',
+      bio: 'British Particular Baptist preacher known as the "Prince of Preachers" for his powerful sermons and theological writings.',
+      period: '1834-1892',
       nationality: 'British',
-      category: 'apologist',
+      category: 'puritan',
       works: [
         {
-          id: 'mere-christianity',
-          title: 'Mere Christianity',
-          description: 'A theological book that arose from a series of BBC radio talks broadcast during WWII.',
-          year: 1952,
-          pages: 227,
-          readingTime: 340,
-          difficulty: 'intermediate',
-          tags: ['apologetics', 'theology', 'faith', 'reason'],
-          progress: 75,
-          isBookmarked: true,
-          rating: 5
-        },
-        {
-          id: 'screwtape-letters',
-          title: 'The Screwtape Letters',
-          description: 'A satirical novel about temptation told through letters from a senior demon to his nephew.',
-          year: 1942,
-          pages: 175,
-          readingTime: 260,
+          id: 'morning-evening',
+          title: 'Morning and Evening',
+          description: 'Daily devotional readings for morning and evening, offering spiritual nourishment and biblical meditation for every day of the year.',
+          year: 1869,
+          pages: 732,
+          readingTime: 1095,
           difficulty: 'beginner',
-          tags: ['spiritual warfare', 'temptation', 'christian life'],
+          tags: ['devotional', 'daily reading', 'meditation', 'spiritual growth'],
           progress: 0,
           isBookmarked: false,
           rating: 5
@@ -88,23 +80,23 @@ const LiteratureLibrary = () => {
       ]
     },
     {
-      id: 'augustine',
-      name: 'Augustine of Hippo',
-      bio: 'Early Christian theologian and philosopher whose writings influenced Western Christianity and philosophy.',
-      period: '354-430 AD',
-      nationality: 'Roman Africa',
-      category: 'theologian',
+      id: 'martin-luther',
+      name: 'Martin Luther',
+      bio: 'German theologian and reformer whose writings sparked the Protestant Reformation and transformed Christianity.',
+      period: '1483-1546',
+      nationality: 'German',
+      category: 'reformer',
       works: [
         {
-          id: 'confessions',
-          title: 'Confessions',
-          description: 'An autobiographical work consisting of 13 books about sin, conversion, and divine grace.',
-          year: 400,
-          pages: 416,
-          readingTime: 625,
+          id: 'bondage-of-will',
+          title: 'The Bondage of the Will',
+          description: 'Luther\'s response to Erasmus on free will, defending the doctrine of predestination and divine sovereignty in salvation.',
+          year: 1525,
+          pages: 320,
+          readingTime: 480,
           difficulty: 'advanced',
-          tags: ['autobiography', 'conversion', 'grace', 'sin'],
-          progress: 25,
+          tags: ['reformation', 'predestination', 'free will', 'salvation', 'theology'],
+          progress: 0,
           isBookmarked: true,
           rating: 5
         }
@@ -113,7 +105,7 @@ const LiteratureLibrary = () => {
     {
       id: 'john-bunyan',
       name: 'John Bunyan',
-      bio: 'English writer and Puritan preacher best known for his Christian allegory The Pilgrim\'s Progress.',
+      bio: 'English writer and Puritan preacher, author of the most famous Christian allegory in the English language.',
       period: '1628-1688',
       nationality: 'English',
       category: 'puritan',
@@ -121,14 +113,60 @@ const LiteratureLibrary = () => {
         {
           id: 'pilgrims-progress',
           title: 'The Pilgrim\'s Progress',
-          description: 'A Christian allegory about a man\'s spiritual journey from the City of Destruction to the Celestial City.',
+          description: 'A Christian allegory following Christian\'s journey from the City of Destruction to the Celestial City, depicting the spiritual life.',
           year: 1678,
           pages: 320,
           readingTime: 480,
           difficulty: 'intermediate',
-          tags: ['allegory', 'spiritual journey', 'salvation', 'christian life'],
-          progress: 100,
+          tags: ['allegory', 'spiritual journey', 'salvation', 'christian life', 'pilgrimage'],
+          progress: 0,
+          isBookmarked: false,
+          rating: 5
+        }
+      ]
+    },
+    {
+      id: 'thomas-kempis',
+      name: 'Thomas à Kempis',
+      bio: 'German-Dutch Catholic monk and mystic, author of one of the most influential works of Christian devotional literature.',
+      period: '1380-1471',
+      nationality: 'German-Dutch',
+      category: 'mystic',
+      works: [
+        {
+          id: 'imitation-of-christ',
+          title: 'The Imitation of Christ',
+          description: 'A devotional book emphasizing the interior life and spiritual union with Jesus Christ through practical spiritual guidance.',
+          year: 1418,
+          pages: 240,
+          readingTime: 360,
+          difficulty: 'intermediate',
+          tags: ['devotional', 'mysticism', 'spiritual discipline', 'imitation', 'contemplation'],
+          progress: 0,
           isBookmarked: true,
+          rating: 5
+        }
+      ]
+    },
+    {
+      id: 'john-calvin',
+      name: 'John Calvin',
+      bio: 'French theologian and reformer whose systematic theology profoundly influenced Protestant Christianity worldwide.',
+      period: '1509-1564',
+      nationality: 'French',
+      category: 'reformer',
+      works: [
+        {
+          id: 'institutes-christian-religion',
+          title: 'Institutes of the Christian Religion',
+          description: 'Calvin\'s masterwork of systematic theology, covering the knowledge of God, redemption in Christ, and the Christian life.',
+          year: 1536,
+          pages: 1521,
+          readingTime: 2280,
+          difficulty: 'advanced',
+          tags: ['systematic theology', 'reformation', 'doctrine', 'sovereignty of God', 'predestination'],
+          progress: 0,
+          isBookmarked: false,
           rating: 5
         }
       ]
@@ -182,12 +220,12 @@ const LiteratureLibrary = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Literature Library</h1>
-          <p className="text-muted-foreground">
+          <h1 className={cn("text-3xl font-bold tracking-tight", getHeadingClasses())}>Literature Library</h1>
+          <p className={cn("text-muted-foreground", getUITextClasses())}>
             Explore classic Christian literature and spiritual writings
           </p>
         </div>
-        <Badge variant="secondary" className="px-3 py-1">
+        <Badge variant="secondary" className={cn("px-3 py-1", getUITextClasses())}>
           {authors.reduce((acc, author) => acc + author.works.length, 0)} works available
         </Badge>
       </div>
@@ -237,22 +275,22 @@ const LiteratureLibrary = () => {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <CardTitle className="text-xl">{author.name}</CardTitle>
-                    <CardDescription className="mt-1">
+                    <CardTitle className={cn("text-xl", getHeadingClasses())}>{author.name}</CardTitle>
+                    <CardDescription className={cn("mt-1", getUITextClasses())}>
                       {author.period} • {author.nationality}
                     </CardDescription>
-                    <Badge variant="outline" className="mt-2">
+                    <Badge variant="outline" className={cn("mt-2", getUITextClasses())}>
                       {getCategoryIcon(author.category)} {author.category}
                     </Badge>
                   </div>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground mt-3">{author.bio}</p>
+              <p className={cn("text-sm text-muted-foreground mt-3", getUITextClasses())}>{author.bio}</p>
             </CardHeader>
             <CardContent>
               <Accordion type="single" collapsible>
                 <AccordionItem value="works">
-                  <AccordionTrigger>
+                  <AccordionTrigger className={getUITextClasses()}>
                     Works ({author.works.length})
                   </AccordionTrigger>
                   <AccordionContent>
@@ -263,8 +301,8 @@ const LiteratureLibrary = () => {
                             <Card className="cursor-pointer hover:shadow-md transition-shadow">
                               <CardContent className="pt-4">
                                 <div className="space-y-2">
-                                  <div className="flex items-start justify-between">
-                                    <h4 className="font-medium text-sm leading-tight">{work.title}</h4>
+                                    <div className="flex items-start justify-between">
+                                      <h4 className={cn("font-medium text-sm leading-tight", getUITextClasses())}>{work.title}</h4>
                                     <div className="flex items-center space-x-1">
                                       {work.isBookmarked && (
                                         <BookmarkIcon className="h-4 w-4 text-blue-500" />
@@ -278,22 +316,22 @@ const LiteratureLibrary = () => {
                                       )}
                                     </div>
                                   </div>
-                                  <p className="text-xs text-muted-foreground line-clamp-2">{work.description}</p>
+                                  <p className={cn("text-xs text-muted-foreground line-clamp-2", getUITextClasses())}>{work.description}</p>
                                   <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                                    <div className={cn("flex items-center space-x-2 text-xs text-muted-foreground", getUITextClasses())}>
                                       <Clock className="h-3 w-3" />
                                       <span>{formatReadingTime(work.readingTime)}</span>
                                     </div>
                                     <Badge 
                                       variant="secondary" 
-                                      className={`text-xs ${getDifficultyColor(work.difficulty)} text-white`}
+                                      className={cn(`text-xs ${getDifficultyColor(work.difficulty)} text-white`, getUITextClasses())}
                                     >
                                       {work.difficulty}
                                     </Badge>
                                   </div>
                                   {work.progress !== undefined && work.progress > 0 && (
                                     <div className="space-y-1">
-                                      <div className="flex justify-between text-xs">
+                                      <div className={cn("flex justify-between text-xs", getUITextClasses())}>
                                         <span>Progress</span>
                                         <span>{work.progress}%</span>
                                       </div>
@@ -306,14 +344,14 @@ const LiteratureLibrary = () => {
                           </DialogTrigger>
                           <DialogContent className="max-w-2xl">
                             <DialogHeader>
-                              <DialogTitle>{work.title}</DialogTitle>
-                              <DialogDescription>
+                              <DialogTitle className={getHeadingClasses()}>{work.title}</DialogTitle>
+                              <DialogDescription className={getUITextClasses()}>
                                 By {author.name} • {work.year} • {work.pages} pages
                               </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4">
-                              <p className="text-sm">{work.description}</p>
-                              <div className="grid grid-cols-2 gap-4 text-sm">
+                              <p className={cn("text-sm", getUITextClasses())}>{work.description}</p>
+                              <div className={cn("grid grid-cols-2 gap-4 text-sm", getUITextClasses())}>
                                 <div>
                                   <span className="font-medium">Reading Time:</span> {formatReadingTime(work.readingTime)}
                                 </div>
@@ -322,25 +360,28 @@ const LiteratureLibrary = () => {
                                 </div>
                               </div>
                               <div>
-                                <span className="font-medium text-sm">Topics:</span>
+                                <span className={cn("font-medium text-sm", getUITextClasses())}>Topics:</span>
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {work.tags.map((tag, index) => (
-                                    <Badge key={index} variant="outline" className="text-xs">
+                                    <Badge key={index} variant="outline" className={cn("text-xs", getUITextClasses())}>
                                       {tag}
                                     </Badge>
                                   ))}
                                 </div>
                               </div>
                               <div className="flex gap-2 pt-4">
-                                <Button className="flex-1">
+                                <Button 
+                                  className={cn("flex-1", getUITextClasses())}
+                                  onClick={() => setSelectedWork(work.id)}
+                                >
                                   <BookOpen className="mr-2 h-4 w-4" />
                                   Start Reading
                                 </Button>
-                                <Button variant="outline">
+                                <Button variant="outline" className={getUITextClasses()}>
                                   <BookmarkIcon className="mr-2 h-4 w-4" />
                                   Bookmark
                                 </Button>
-                                <Button variant="outline">
+                                <Button variant="outline" className={getUITextClasses()}>
                                   <Download className="mr-2 h-4 w-4" />
                                   Download
                                 </Button>
@@ -356,9 +397,18 @@ const LiteratureLibrary = () => {
             </CardContent>
           </Card>
         ))}
+        })}
       </div>
+      
+      {/* Literature Reader Modal */}
+      {selectedWork && (
+        <LiteratureReader 
+          workId={selectedWork} 
+          onClose={() => setSelectedWork(null)} 
+        />
+      )}
     </div>
   )
 }
 
-export default LiteratureLibrary 
+export default LiteratureLibrary
