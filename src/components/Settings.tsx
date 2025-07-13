@@ -29,26 +29,41 @@ import {
   Trash2,
   RefreshCw,
   Sparkles,
-  Zap
+  Zap,
+  Check,
+  Loader2
 } from 'lucide-react'
 import { useAnimations } from './AnimationProvider'
 import { useBibleVersion } from './BibleVersionProvider'
+import { useUserPreferences } from './UserPreferencesProvider'
 
 const Settings = () => {
   const { theme, setTheme } = useTheme()
-  const { preferences, updatePreferences, getTransitionClass, getDuration, isAnimationEnabled } = useAnimations()
+  const { preferences: animationPreferences, updatePreferences: updateAnimationPreferences, getTransitionClass, getDuration, isAnimationEnabled } = useAnimations()
   const { selectedVersion, availableVersions, setSelectedVersion } = useBibleVersion()
-  const [fontSize, setFontSize] = useState(16)
-  const [lineHeight, setLineHeight] = useState(1.6)
-  const [verseNumbers, setVerseNumbers] = useState(true)
-  const [highlightEnabled, setHighlightEnabled] = useState(true)
-  const [autoSave, setAutoSave] = useState(true)
-  const [notifications, setNotifications] = useState(true)
+  const { preferences, updatePreferences, resetPreferences, saveStatus } = useUserPreferences()
   const [scrollProgress, setScrollProgress] = useState(0)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [audioEnabled, setAudioEnabled] = useState(false)
-  const [fontFamily, setFontFamily] = useState('Georgia')
-  const [readingMode, setReadingMode] = useState('standard')
+  
+  // Extract values from preferences for easier access
+  const {
+    fontSize,
+    lineHeight,
+    fontFamily,
+    readingMode,
+    verseNumbers,
+    highlightEnabled,
+    autoSave,
+    notifications,
+    audioEnabled,
+    dailyReadingReminders,
+    weeklyProgressUpdates,
+    newLiteratureReleases,
+    achievementNotifications,
+    analyticsCollection,
+    crashReporting,
+    publicReadingStats
+  } = preferences
 
   useEffect(() => {
     const handleScroll = () => {
@@ -96,16 +111,7 @@ const Settings = () => {
   }
 
   const handleResetSettings = () => {
-    // Reset all settings to defaults
-    setFontSize(16)
-    setLineHeight(1.6)
-    setVerseNumbers(true)
-    setHighlightEnabled(true)
-    setAutoSave(true)
-    setNotifications(true)
-    setAudioEnabled(false)
-    setFontFamily('Georgia')
-    setReadingMode('standard')
+    resetPreferences()
     setTheme('system')
   }
 
@@ -119,7 +125,26 @@ const Settings = () => {
             Customize your OpenBible experience
           </p>
         </div>
-        <SettingsIcon className="h-8 w-8 text-muted-foreground" />
+        <div className="flex items-center gap-3">
+          {/* Save Status Indicator */}
+          {saveStatus !== 'idle' && (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50">
+              {saveStatus === 'saving' && (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                  <span className="text-xs text-muted-foreground">Saving...</span>
+                </>
+              )}
+              {saveStatus === 'saved' && (
+                <>
+                  <Check className="h-3 w-3 text-green-600" />
+                  <span className="text-xs text-green-600">Saved</span>
+                </>
+              )}
+            </div>
+          )}
+          <SettingsIcon className="h-8 w-8 text-muted-foreground" />
+        </div>
       </div>
 
       {/* Settings Tabs */}
@@ -221,7 +246,7 @@ const Settings = () => {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Font Family</Label>
-                  <Select value={fontFamily} onValueChange={setFontFamily}>
+                  <Select value={fontFamily} onValueChange={(value) => updatePreferences({ fontFamily: value })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -239,7 +264,7 @@ const Settings = () => {
                   <Label>Font Size: {fontSize}px</Label>
                   <Slider
                     value={[fontSize]}
-                    onValueChange={(value) => setFontSize(value[0])}
+                    onValueChange={(value) => updatePreferences({ fontSize: value[0] })}
                     max={24}
                     min={12}
                     step={1}
@@ -251,7 +276,7 @@ const Settings = () => {
                   <Label>Line Height: {lineHeight}</Label>
                   <Slider
                     value={[lineHeight]}
-                    onValueChange={(value) => setLineHeight(value[0])}
+                    onValueChange={(value) => updatePreferences({ lineHeight: value[0] })}
                     max={2.0}
                     min={1.2}
                     step={0.1}
@@ -305,36 +330,36 @@ const Settings = () => {
                   </p>
                 </div>
                 <Switch
-                  checked={preferences.enableAnimations}
-                  onCheckedChange={(enabled) => updatePreferences({ enableAnimations: enabled })}
+                  checked={animationPreferences.enabled}
+                  onCheckedChange={(enabled) => updateAnimationPreferences({ enabled })}
                 />
               </div>
 
-              {preferences.enableAnimations && !preferences.reducedMotion && (
+              {animationPreferences.enabled && !animationPreferences.reducedMotion && (
                 <div className="space-y-6 pl-4 border-l-2 border-muted">
                   <div className="space-y-2">
                     <Label>Animation Speed</Label>
                     <div className="grid grid-cols-3 gap-2">
                       <Button
-                        variant={preferences.animationSpeed === 'slow' ? 'default' : 'outline'}
+                        variant={animationPreferences.speed === 'slow' ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => updatePreferences({ animationSpeed: 'slow' })}
+                        onClick={() => updateAnimationPreferences({ speed: 'slow' })}
                         className="justify-center"
                       >
                         Slow
                       </Button>
                       <Button
-                        variant={preferences.animationSpeed === 'normal' ? 'default' : 'outline'}
+                        variant={animationPreferences.speed === 'normal' ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => updatePreferences({ animationSpeed: 'normal' })}
+                        onClick={() => updateAnimationPreferences({ speed: 'normal' })}
                         className="justify-center"
                       >
                         Normal
                       </Button>
                       <Button
-                        variant={preferences.animationSpeed === 'fast' ? 'default' : 'outline'}
+                        variant={animationPreferences.speed === 'fast' ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => updatePreferences({ animationSpeed: 'fast' })}
+                        onClick={() => updateAnimationPreferences({ speed: 'fast' })}
                         className="justify-center"
                       >
                         Fast
@@ -356,8 +381,8 @@ const Settings = () => {
                           </p>
                         </div>
                         <Switch
-                          checked={preferences.pageTransitions}
-                          onCheckedChange={(checked) => updatePreferences({ pageTransitions: checked })}
+                          checked={animationPreferences.pageTransitions}
+                          onCheckedChange={(checked) => updateAnimationPreferences({ pageTransitions: checked })}
                         />
                       </div>
 
@@ -369,8 +394,8 @@ const Settings = () => {
                           </p>
                         </div>
                         <Switch
-                          checked={preferences.verseAnimations}
-                          onCheckedChange={(checked) => updatePreferences({ verseAnimations: checked })}
+                          checked={animationPreferences.verseAnimations}
+                          onCheckedChange={(checked) => updateAnimationPreferences({ verseAnimations: checked })}
                         />
                       </div>
 
@@ -382,8 +407,8 @@ const Settings = () => {
                           </p>
                         </div>
                         <Switch
-                          checked={preferences.buttonHovers}
-                          onCheckedChange={(checked) => updatePreferences({ buttonHovers: checked })}
+                          checked={animationPreferences.buttonHovers}
+                          onCheckedChange={(checked) => updateAnimationPreferences({ buttonHovers: checked })}
                         />
                       </div>
 
@@ -395,8 +420,8 @@ const Settings = () => {
                           </p>
                         </div>
                         <Switch
-                          checked={preferences.modalAnimations}
-                          onCheckedChange={(checked) => updatePreferences({ modalAnimations: checked })}
+                          checked={animationPreferences.modalAnimations}
+                          onCheckedChange={(checked) => updateAnimationPreferences({ modalAnimations: checked })}
                         />
                       </div>
 
@@ -408,8 +433,8 @@ const Settings = () => {
                           </p>
                         </div>
                         <Switch
-                          checked={preferences.loadingAnimations}
-                          onCheckedChange={(checked) => updatePreferences({ loadingAnimations: checked })}
+                          checked={animationPreferences.loadingAnimations}
+                          onCheckedChange={(checked) => updateAnimationPreferences({ loadingAnimations: checked })}
                         />
                       </div>
 
@@ -421,8 +446,8 @@ const Settings = () => {
                           </p>
                         </div>
                         <Switch
-                          checked={preferences.scrollAnimations}
-                          onCheckedChange={(checked) => updatePreferences({ scrollAnimations: checked })}
+                          checked={animationPreferences.scrollAnimations}
+                          onCheckedChange={(checked) => updateAnimationPreferences({ scrollAnimations: checked })}
                         />
                       </div>
                     </div>
@@ -448,7 +473,7 @@ const Settings = () => {
                 </div>
               )}
 
-              {preferences.reducedMotion && (
+              {animationPreferences.reducedMotion && (
                 <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800/30 rounded-lg">
                   <Zap className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
                   <p className="text-sm text-yellow-800 dark:text-yellow-200">
@@ -553,7 +578,7 @@ const Settings = () => {
                       </div>
                       <Switch
                         checked={verseNumbers}
-                        onCheckedChange={setVerseNumbers}
+                        onCheckedChange={(checked) => updatePreferences({ verseNumbers: checked })}
                       />
                     </div>
 
@@ -566,7 +591,7 @@ const Settings = () => {
                       </div>
                       <Switch
                         checked={highlightEnabled}
-                        onCheckedChange={setHighlightEnabled}
+                        onCheckedChange={(checked) => updatePreferences({ highlightEnabled: checked })}
                       />
                     </div>
 
@@ -579,7 +604,7 @@ const Settings = () => {
                       </div>
                       <Switch
                         checked={autoSave}
-                        onCheckedChange={setAutoSave}
+                        onCheckedChange={(checked) => updatePreferences({ autoSave: checked })}
                       />
                     </div>
                   </div>
@@ -640,7 +665,7 @@ const Settings = () => {
                 </div>
                 <Switch
                   checked={notifications}
-                  onCheckedChange={setNotifications}
+                  onCheckedChange={(checked) => updatePreferences({ notifications: checked })}
                 />
               </div>
 
@@ -648,22 +673,34 @@ const Settings = () => {
                 <div className="space-y-4 pl-4 border-l-2 border-muted">
                   <div className="flex items-center justify-between">
                     <Label>Daily Reading Reminders</Label>
-                    <Switch defaultChecked />
+                    <Switch 
+                      checked={dailyReadingReminders}
+                      onCheckedChange={(checked) => updatePreferences({ dailyReadingReminders: checked })}
+                    />
                   </div>
                   
                   <div className="flex items-center justify-between">
                     <Label>Weekly Progress Updates</Label>
-                    <Switch defaultChecked />
+                    <Switch 
+                      checked={weeklyProgressUpdates}
+                      onCheckedChange={(checked) => updatePreferences({ weeklyProgressUpdates: checked })}
+                    />
                   </div>
 
                   <div className="flex items-center justify-between">
                     <Label>New Literature Releases</Label>
-                    <Switch />
+                    <Switch 
+                      checked={newLiteratureReleases}
+                      onCheckedChange={(checked) => updatePreferences({ newLiteratureReleases: checked })}
+                    />
                   </div>
 
                   <div className="flex items-center justify-between">
                     <Label>Achievement Notifications</Label>
-                    <Switch defaultChecked />
+                    <Switch 
+                      checked={achievementNotifications}
+                      onCheckedChange={(checked) => updatePreferences({ achievementNotifications: checked })}
+                    />
                   </div>
                 </div>
               )}
@@ -691,7 +728,10 @@ const Settings = () => {
                       Help improve OpenBible with anonymous usage data
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch 
+                    checked={analyticsCollection}
+                    onCheckedChange={(checked) => updatePreferences({ analyticsCollection: checked })}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -701,7 +741,10 @@ const Settings = () => {
                       Automatically send crash reports to help fix bugs
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch 
+                    checked={crashReporting}
+                    onCheckedChange={(checked) => updatePreferences({ crashReporting: checked })}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -711,7 +754,10 @@ const Settings = () => {
                       Share your reading statistics publicly
                     </p>
                   </div>
-                  <Switch />
+                  <Switch 
+                    checked={publicReadingStats}
+                    onCheckedChange={(checked) => updatePreferences({ publicReadingStats: checked })}
+                  />
                 </div>
               </div>
 
@@ -797,4 +843,4 @@ const Settings = () => {
   )
 }
 
-export default Settings 
+export default Settings

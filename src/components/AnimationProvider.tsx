@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
 type AnimationPreferences = {
+  speed: string
+  enabled: boolean | undefined
   enableAnimations: boolean
   animationSpeed: 'slow' | 'normal' | 'fast'
   reducedMotion: boolean
@@ -33,7 +35,9 @@ const defaultPreferences: AnimationPreferences = {
   buttonHovers: true,
   modalAnimations: true,
   loadingAnimations: true,
-  scrollAnimations: true
+  scrollAnimations: true,
+  speed: '',
+  enabled: undefined
 }
 
 export function AnimationProvider({ children }: { children: React.ReactNode }) {
