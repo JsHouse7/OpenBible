@@ -7,6 +7,7 @@ import { BibleVersionProvider } from "@/components/BibleVersionProvider";
 import { AnimationProvider } from "@/components/AnimationProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import EnhancedNavigation from "@/components/EnhancedNavigation";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -35,11 +36,12 @@ export default function RootLayout({
                 <AnimationProvider>
                   <div className="min-h-screen bg-background">
                     <EnhancedNavigation />
-                    <div className="pt-16 transition-all duration-300">
+                    <div className="pt-16 pb-20 md:pb-0 transition-all duration-300">
                       <main className="min-h-screen">
                         {children}
                       </main>
                     </div>
+                    <MobileBottomNav />
                   </div>
                 </AnimationProvider>
               </BibleVersionProvider>

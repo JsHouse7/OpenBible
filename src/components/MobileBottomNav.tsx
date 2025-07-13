@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import { 
   Home, 
   BookOpen, 
@@ -22,38 +23,42 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useAnimations } from '@/components/AnimationProvider'
 
-interface MobileBottomNavProps {
-  currentPage: string
-  onPageChange: (page: string) => void
-}
-
 const primaryNavItems = [
-  { id: 'dashboard', icon: Home, label: 'Home' },
-  { id: 'reader', icon: BookOpen, label: 'Bible' },
-  { id: 'literature', icon: Library, label: 'Library' },
-  { id: 'notes', icon: FileText, label: 'Notes', badge: 12 },
+  { id: 'dashboard', icon: Home, label: 'Home', href: '/dashboard' },
+  { id: 'bible', icon: BookOpen, label: 'Bible', href: '/bible' },
+  { id: 'literature', icon: Library, label: 'Library', href: '/literature' },
+  { id: 'notes', icon: FileText, label: 'Notes', href: '/notes' },
 ]
 
 const secondaryNavItems = [
-  { id: 'bookmarks', icon: Bookmark, label: 'Bookmarks' },
-  { id: 'highlights', icon: Highlighter, label: 'Highlights' },
-  { id: 'progress', icon: TrendingUp, label: 'Progress' },
-  { id: 'plans', icon: Calendar, label: 'Plans' },
-  { id: 'settings', icon: Settings, label: 'Settings' },
+  { id: 'bookmarks', icon: Bookmark, label: 'Bookmarks', href: '/bookmarks' },
+  { id: 'highlights', icon: Highlighter, label: 'Highlights', href: '/highlights' },
+  { id: 'progress', icon: TrendingUp, label: 'Progress', href: '/progress' },
+  { id: 'plans', icon: Calendar, label: 'Plans', href: '/reading-plans' },
+  { id: 'settings', icon: Settings, label: 'Settings', href: '/settings' },
 ]
 
-export function MobileBottomNav({ currentPage, onPageChange }: MobileBottomNavProps) {
+export default function MobileBottomNav() {
   const [showMenu, setShowMenu] = useState(false)
   const { getTransitionClass, isAnimationEnabled } = useAnimations()
+  const router = useRouter()
+  const pathname = usePathname()
 
   const toggleMenu = () => {
     setShowMenu(!showMenu)
   }
 
-  const handleNavigation = (pageId: string) => {
-    onPageChange(pageId)
+  const handleNavigation = (href: string) => {
+    router.push(href)
     setShowMenu(false)
   }
+
+  const getCurrentPage = () => {
+    if (pathname === '/') return 'dashboard'
+    return pathname.slice(1).split('/')[0] // Remove leading slash and get first segment
+  }
+
+  const currentPage = getCurrentPage()
 
   return (
     <>
@@ -89,7 +94,7 @@ export function MobileBottomNav({ currentPage, onPageChange }: MobileBottomNavPr
               <Button
                 variant="outline"
                 className="w-full justify-start h-10"
-                onClick={() => handleNavigation('search')}
+                onClick={() => handleNavigation('/search')}
               >
                 <Search className="h-4 w-4 mr-2" />
                 Search Bible & Literature
@@ -106,7 +111,7 @@ export function MobileBottomNav({ currentPage, onPageChange }: MobileBottomNavPr
                     "flex flex-col items-center gap-1 h-auto py-3 px-2",
                     getTransitionClass('default', 'button')
                   )}
-                  onClick={() => handleNavigation(item.id)}
+                  onClick={() => handleNavigation(item.href)}
                 >
                   <item.icon className="h-5 w-5" />
                   <span className="text-xs font-medium">{item.label}</span>
@@ -147,7 +152,7 @@ export function MobileBottomNav({ currentPage, onPageChange }: MobileBottomNavPr
                   ? "text-primary bg-primary/10" 
                   : "text-muted-foreground hover:text-foreground"
               )}
-              onClick={() => handleNavigation(item.id)}
+              onClick={() => handleNavigation(item.href)}
             >
               <div className="relative">
                 <item.icon className={cn(
@@ -155,12 +160,12 @@ export function MobileBottomNav({ currentPage, onPageChange }: MobileBottomNavPr
                   currentPage === item.id && "scale-110",
                   getTransitionClass('fast', 'button')
                 )} />
-                {item.badge && (
+                {('badge' in item) && (
                   <Badge 
                     variant="destructive" 
                     className="absolute -top-2 -right-2 h-4 w-4 p-0 text-[10px] flex items-center justify-center"
                   >
-                    {item.badge}
+                    {item.badge as React.ReactNode}
                   </Badge>
                 )}
                 {currentPage === item.id && (
@@ -220,9 +225,6 @@ export function MobileBottomNav({ currentPage, onPageChange }: MobileBottomNavPr
         {/* Home Indicator for iPhone */}
         <div className="h-1 bg-muted-foreground/20 rounded-full w-32 mx-auto mb-1" />
       </div>
-
-      {/* Bottom padding for content */}
-      <div className="h-20 md:hidden" />
     </>
   )
-} 
+}
