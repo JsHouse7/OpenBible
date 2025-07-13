@@ -3,6 +3,8 @@
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { BibleVersionSelector } from "./BibleVersionSelector"
+import { useFonts } from "@/hooks/useFonts"
+import { cn } from "@/lib/utils"
 
 interface ScriptureHeaderProps {
   book: string
@@ -27,6 +29,8 @@ export function ScriptureHeader({
   canGoPrevious,
   canGoNext
 }: ScriptureHeaderProps) {
+  const { getUITextClasses } = useFonts()
+  
   return (
     <div className="sticky top-16 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
       <div className="max-w-4xl mx-auto px-4 py-3">
@@ -45,18 +49,18 @@ export function ScriptureHeader({
             <div className="flex items-center gap-2">
               <button
                 onClick={onBookClick}
-                className="text-lg font-semibold text-foreground hover:text-blue-600 transition-colors"
+                className={cn("text-lg font-semibold text-foreground hover:text-blue-600 transition-colors", getUITextClasses())}
               >
                 {book}
               </button>
               <button
                 onClick={onChapterClick}
-                className="text-lg font-semibold text-foreground hover:text-blue-600 transition-colors"
+                className={cn("text-lg font-semibold text-foreground hover:text-blue-600 transition-colors", getUITextClasses())}
               >
                 {chapter}
               </button>
               {verseRange && (
-                <span className="text-sm text-muted-foreground font-normal ml-1">
+                <span className={cn("text-sm text-muted-foreground font-normal ml-1", getUITextClasses())}>
                   ({verseRange})
                 </span>
               )}
@@ -78,4 +82,4 @@ export function ScriptureHeader({
       </div>
     </div>
   )
-} 
+}

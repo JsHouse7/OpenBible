@@ -8,11 +8,13 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useBibleVersion } from './BibleVersionProvider'
+import { useFonts } from '@/hooks/useFonts'
 import { cn } from '@/lib/utils'
 import { LoadingTranslations } from './ui/LoadingTranslations'
 
 export function BibleVersionSelector() {
   const { selectedVersion, availableVersions, setSelectedVersion, isLoading } = useBibleVersion()
+  const { getUITextClasses } = useFonts()
   const [open, setOpen] = useState(false)
 
   return (
@@ -29,7 +31,7 @@ export function BibleVersionSelector() {
             {isLoading ? (
               <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
             ) : (
-              <span className="text-xs font-medium text-muted-foreground">
+              <span className={cn("text-xs font-medium text-muted-foreground", getUITextClasses())}>
                 {selectedVersion.abbreviation}
               </span>
             )}
@@ -67,18 +69,18 @@ export function BibleVersionSelector() {
                           />
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{version.abbreviation}</span>
-                              <span className="text-sm text-muted-foreground">
+                              <span className={cn("font-medium", getUITextClasses())}>{version.abbreviation}</span>
+                              <span className={cn("text-sm text-muted-foreground", getUITextClasses())}>
                                 {version.name}
                               </span>
                             </div>
-                            <span className="text-xs text-muted-foreground">
+                            <span className={cn("text-xs text-muted-foreground", getUITextClasses())}>
                               {version.year && `${version.year} • `}{version.language}
                             </span>
                           </div>
                         </div>
                         {selectedVersion.id === version.id && (
-                          <Badge variant="default" className="text-xs">
+                          <Badge variant="default" className={cn("text-xs", getUITextClasses())}>
                             Current
                           </Badge>
                         )}

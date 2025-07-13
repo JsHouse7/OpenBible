@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import { useFonts } from '@/hooks/useFonts'
 import { 
   Home, 
   BookOpen, 
@@ -41,6 +42,7 @@ const secondaryNavItems = [
 export default function MobileBottomNav() {
   const [showMenu, setShowMenu] = useState(false)
   const { getTransitionClass, isAnimationEnabled } = useAnimations()
+  const { getUITextClasses } = useFonts()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -78,7 +80,7 @@ export default function MobileBottomNav() {
         )}>
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-lg">Quick Access</h3>
+              <h3 className={cn("font-semibold text-lg", getUITextClasses())}>Quick Access</h3>
               <Button
                 variant="ghost"
                 size="sm"
@@ -97,7 +99,7 @@ export default function MobileBottomNav() {
                 onClick={() => handleNavigation('/search')}
               >
                 <Search className="h-4 w-4 mr-2" />
-                Search Bible & Literature
+                <span className={getUITextClasses()}>Search Bible & Literature</span>
               </Button>
             </div>
 
@@ -114,7 +116,7 @@ export default function MobileBottomNav() {
                   onClick={() => handleNavigation(item.href)}
                 >
                   <item.icon className="h-5 w-5" />
-                  <span className="text-xs font-medium">{item.label}</span>
+                  <span className={cn("text-xs font-medium", getUITextClasses())}>{item.label}</span>
                 </Button>
               ))}
             </div>
@@ -126,8 +128,8 @@ export default function MobileBottomNav() {
                   <User className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-sm">Welcome back!</p>
-                  <p className="text-xs text-muted-foreground">Continue your reading journey</p>
+                  <p className={cn("font-medium text-sm", getUITextClasses())}>Welcome back!</p>
+                  <p className={cn("text-xs text-muted-foreground", getUITextClasses())}>Continue your reading journey</p>
                 </div>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                   <Bell className="h-4 w-4" />
@@ -177,7 +179,8 @@ export default function MobileBottomNav() {
               </div>
               <span className={cn(
                 "text-xs font-medium",
-                currentPage === item.id && "text-primary"
+                currentPage === item.id && "text-primary",
+                getUITextClasses()
               )}>
                 {item.label}
               </span>
@@ -215,7 +218,8 @@ export default function MobileBottomNav() {
             </div>
             <span className={cn(
               "text-xs font-medium",
-              showMenu && "text-primary"
+              showMenu && "text-primary",
+              getUITextClasses()
             )}>
               More
             </span>

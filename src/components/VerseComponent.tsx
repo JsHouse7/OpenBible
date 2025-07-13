@@ -5,6 +5,7 @@ import { Bookmark, MessageSquare, Highlighter, BookmarkCheck } from "lucide-reac
 import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
 import { useAnimations } from "@/components/AnimationProvider"
+import { useFonts } from "@/hooks/useFonts"
 import type { BibleVerse } from "@/data/completeBible"
 
 interface Note {
@@ -45,6 +46,7 @@ export function VerseComponent({
   const [showActions, setShowActions] = useState(false)
   const [showColorPicker, setShowColorPicker] = useState(false)
   const { getTransitionClass, isAnimationEnabled } = useAnimations()
+  const { getBibleTextClasses, getUITextClasses } = useFonts()
 
   const highlightColors = [
     { name: 'Yellow', value: 'yellow', bg: 'bg-yellow-200', text: 'text-yellow-800' },
@@ -121,12 +123,12 @@ export function VerseComponent({
         }}
         aria-label={`Verse ${verse.verse}: ${verse.text}`}
       >
-        <span className="flex-shrink-0 text-sm font-medium text-muted-foreground mt-1 min-w-[24px]">
+        <span className={cn("flex-shrink-0 font-medium text-muted-foreground mt-1 min-w-[24px]", getUITextClasses())}>
           {verse.verse}
         </span>
 
         <div className="flex-1 min-w-0">
-          <p className="text-foreground leading-relaxed font-serif text-base sm:text-lg">
+          <p className={cn("text-foreground", getBibleTextClasses())}>
             {verse.text}
           </p>
 

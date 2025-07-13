@@ -17,6 +17,17 @@ module.exports = {
   		}
   	},
   	extend: {
+  		fontFamily: {
+  			sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+  			serif: ['var(--font-merriweather)', 'Georgia', 'serif'],
+  			merriweather: ['var(--font-merriweather)', 'Georgia', 'serif'],
+  			crimson: ['var(--font-crimson)', 'Georgia', 'serif'],
+  			lora: ['var(--font-lora)', 'Georgia', 'serif'],
+  			playfair: ['var(--font-playfair)', 'Georgia', 'serif'],
+  			'source-serif': ['var(--font-source-serif)', 'Georgia', 'serif'],
+  			'eb-garamond': ['var(--font-eb-garamond)', 'Georgia', 'serif'],
+  			'libre-baskerville': ['var(--font-libre-baskerville)', 'Georgia', 'serif'],
+  		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
@@ -110,4 +121,4 @@ module.exports = {
   	}
   },
   plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
-} 
+}

@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { useTheme } from '@/components/ThemeProvider'
 import { useAuth } from '@/components/AuthProvider'
+import { useFonts } from '@/hooks/useFonts'
 import { bibleService, notesService, analyticsService } from '@/lib/database'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -43,6 +44,7 @@ const EnhancedNavigation = () => {
   const [notificationsCount, setNotificationsCount] = useState(0)
   const { theme, setTheme } = useTheme()
   const { user } = useAuth()
+  const { getUITextClasses } = useFonts()
   const router = useRouter()
   const pathname = usePathname()
 

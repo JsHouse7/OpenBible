@@ -36,12 +36,14 @@ import {
 import { useAnimations } from './AnimationProvider'
 import { useBibleVersion } from './BibleVersionProvider'
 import { useUserPreferences } from './UserPreferencesProvider'
+import { useFonts } from '@/hooks/useFonts'
 
 const Settings = () => {
   const { theme, setTheme } = useTheme()
   const { preferences: animationPreferences, updatePreferences: updateAnimationPreferences, getTransitionClass, getDuration, isAnimationEnabled } = useAnimations()
   const { selectedVersion, availableVersions, setSelectedVersion } = useBibleVersion()
   const { preferences, updatePreferences, resetPreferences, saveStatus } = useUserPreferences()
+  const { fontOptions, getBibleTextClasses } = useFonts()
   const [scrollProgress, setScrollProgress] = useState(0)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   
@@ -84,14 +86,7 @@ const Settings = () => {
     }
   }, [])
 
-  const fontOptions = [
-    { value: 'Georgia', label: 'Georgia (Serif)' },
-    { value: 'Times New Roman', label: 'Times New Roman (Serif)' },
-    { value: 'Inter', label: 'Inter (Sans-serif)' },
-    { value: 'Open Sans', label: 'Open Sans (Sans-serif)' },
-    { value: 'Crimson Text', label: 'Crimson Text (Reading)' },
-    { value: 'Source Serif Pro', label: 'Source Serif Pro (Reading)' }
-  ]
+
 
   const readingModeOptions = [
     { value: 'standard', label: 'Standard' },
@@ -253,7 +248,10 @@ const Settings = () => {
                     <SelectContent>
                       {fontOptions.map((font) => (
                         <SelectItem key={font.value} value={font.value}>
-                          {font.label}
+                          <div className="flex flex-col">
+                            <span>{font.name}</span>
+                            <span className="text-xs text-muted-foreground">{font.description}</span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -293,17 +291,10 @@ const Settings = () => {
               <CardDescription>See how your text will appear</CardDescription>
             </CardHeader>
             <CardContent>
-              <div 
-                className="p-4 border rounded-lg bg-card"
-                style={{
-                  fontFamily: fontFamily,
-                  fontSize: `${fontSize}px`,
-                  lineHeight: lineHeight
-                }}
-              >
+              <div className="p-4 border rounded-lg bg-card">
                 <div className="space-y-2">
                   {verseNumbers && <span className="text-blue-600 font-medium mr-2">16</span>}
-                  <span>For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.</span>
+                  <span className={getBibleTextClasses()}>For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.</span>
                 </div>
               </div>
             </CardContent>

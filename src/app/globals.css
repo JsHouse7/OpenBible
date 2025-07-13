@@ -115,7 +115,7 @@ body {
 /* Reading interface */
 .reading-container {
   @apply max-w-4xl mx-auto px-4 py-6;
-  font-family: Georgia, 'Times New Roman', serif;
+  /* Font family is now handled by dynamic classes from useFonts hook */
 }
 
 .chapter-content {

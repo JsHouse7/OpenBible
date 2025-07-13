@@ -9,6 +9,7 @@ import { NoteModal } from '@/components/NoteModal'
 import { useAnimations } from '@/components/AnimationProvider'
 import { useBibleVersion } from '@/components/BibleVersionProvider'
 import { useAuth } from '@/components/AuthProvider'
+import { useFonts } from '@/hooks/useFonts'
 import { cn } from '@/lib/utils'
 import { loadChapterData, COMPLETE_BIBLE_BOOKS } from '@/data/completeBible'
 import { notesService, highlightsService, bookmarksService } from '@/lib/database'
@@ -38,6 +39,7 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
   const [error, setError] = useState<string | null>(null)
   const { getTransitionClass } = useAnimations()
   const { user } = useAuth()
+  const { getBibleTextClasses } = useFonts()
   const [selectedVerse, setSelectedVerse] = useState<BibleVerse | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [highlights, setHighlights] = useState<Set<string>>(new Set())
@@ -396,7 +398,7 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
       <div className="max-w-4xl mx-auto px-4 py-6">
 
         {/* Verses */}
-        <div className={cn("space-y-1", getTransitionClass('default', 'verse') && "animate-in fade-in-0 slide-in-from-bottom-4 duration-500")}>
+        <div className={cn("space-y-1 reading-container", getBibleTextClasses(), getTransitionClass('default', 'verse') && "animate-in fade-in-0 slide-in-from-bottom-4 duration-500")}>
           {verses.map((verse, index) => (
             <div 
               key={verse.id} 
