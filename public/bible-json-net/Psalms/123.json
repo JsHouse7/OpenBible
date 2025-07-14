@@ -1,0 +1,38 @@
+{
+  "book_name": "Psalms",
+  "chapter": 123,
+  "verses": [
+    {
+      "book_name": "Psalms",
+      "chapter": 123,
+      "verse": 1,
+      "text": "I look up toward you,\nthe one enthroned in heaven.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Psalms",
+      "chapter": 123,
+      "verse": 2,
+      "text": "Look, as the eyes of servants look to the hand of their master,\nas the eyes of a female servant look to the hand of her mistress,\nso our eyes will look to the Lord, our God, until he shows us favor.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Psalms",
+      "chapter": 123,
+      "verse": 3,
+      "text": "Show us favor, O Lord, show us favor!\nFor we have had our fill of humiliation, and then some.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Psalms",
+      "chapter": 123,
+      "verse": 4,
+      "text": "We have had our fill\nof the taunts of the self-assured,\nof the contempt of the proud.",
+      "header": "",
+      "footer": ""
+    }
+  ]
+}

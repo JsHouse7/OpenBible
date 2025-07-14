@@ -4,7 +4,9 @@ const https = require('https');
 
 // Available translations from the repository
 const TRANSLATIONS = [
-  'AKJV', 'ASV', 'BBE', 'DARBY', 'ESV', 'KJV', 'NASB', 'NIV', 'NKJV', 'NLT', 'WEB', 'YLT'
+  'AKJV', 'ASV', 'BRG', 'EHV', 'ESV', 'ESVUK', 'GNV', 'GW', 'ISV', 'JUB', 'KJ21', 'KJV', 
+  'LEB', 'MEV', 'NASB', 'NASB1995', 'NET', 'NIV', 'NIVUK', 'NKJV', 'NLT', 'NLV', 'NOG', 
+  'NRSV', 'NRSVUE', 'WEB', 'YLT'
 ];
 
 // Additional book name mappings for special cases
@@ -153,8 +155,8 @@ async function downloadTranslation(translation) {
 async function main() {
   console.log('Starting Bible translations import...\n');
   
-  // Download a few key translations first
-  const priorityTranslations = ['KJV', 'ESV', 'NIV', 'WEB'];
+  // Download popular translations first
+  const priorityTranslations = ['KJV', 'ESV', 'NIV', 'WEB', 'NASB', 'NKJV', 'NLT', 'ASV'];
   
   for (const translation of priorityTranslations) {
     await downloadTranslation(translation);

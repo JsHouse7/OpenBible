@@ -1,0 +1,414 @@
+{
+  "book_name": "Numbers",
+  "chapter": 3,
+  "verses": [
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 1,
+      "text": "Now these are the records of the generations of Aaron and Moses at the time when the Lord spoke with Moses on Mount Sinai.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 2,
+      "text": "These then are the names of the sons of Aaron: Nadab the firstborn, and Abihu, Eleazar and Ithamar.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 3,
+      "text": "These are the names of the sons of Aaron, the anointed priests, whom he ordained to serve as priests.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 4,
+      "text": "But Nadab and Abihu died in the presence of the Lord when they offered strange fire before the Lord in the wilderness of Sinai; and they had no children. So Eleazar and Ithamar served as priests in the lifetime of their father Aaron.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 5,
+      "text": "Then the Lord spoke to Moses, saying,",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 6,
+      "text": "“Bring the tribe of Levi forward and present them before Aaron the priest, that they may serve him.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 7,
+      "text": "They shall perform the duties for him and for the whole congregation in front of the tent of meeting, to do the service of the tabernacle.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 8,
+      "text": "They shall also take care of all the furnishings of the tent of meeting, along with the duties of the sons of Israel, to do the service of the tabernacle.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 9,
+      "text": "So you shall assign the Levites to Aaron and to his sons; they are exclusively assigned to him from the sons of Israel.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 10,
+      "text": "So you shall appoint Aaron and his sons that they may keep their priesthood, but the layman who comes near shall be put to death.”",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 11,
+      "text": "Again the Lord spoke to Moses, saying,",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 12,
+      "text": "“Now, behold, I have taken the Levites from among the sons of Israel instead of every firstborn, the firstborn of the womb among the sons of Israel. So the Levites shall be Mine.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 13,
+      "text": "For all the firstborn are Mine; on the day that I fatally struck all the firstborn in the land of Egypt, I sanctified to Myself all the firstborn in Israel, from the human firstborn to animals. They shall be Mine; I am the Lord.”",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 14,
+      "text": "Then the Lord spoke to Moses in the wilderness of Sinai, saying,",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 15,
+      "text": "“Count the sons of Levi by their fathers’ households, by their families; every male from a month old and upward you shall count.”",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 16,
+      "text": "So Moses counted them according to the word of the Lord, just as he had been commanded.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 17,
+      "text": "These, then, are the sons of Levi by their names: Gershon, Kohath, and Merari.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 18,
+      "text": "And these are the names of the sons of Gershon by their families: Libni and Shimei;",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 19,
+      "text": "and the sons of Kohath by their families: Amram and Izhar, Hebron and Uzziel;",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 20,
+      "text": "and the sons of Merari by their families: Mahli and Mushi. These are the families of the Levites according to their fathers’ households.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 21,
+      "text": "Of Gershon was the family of the Libnites and the family of the Shimeites; these were the families of the Gershonites.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 22,
+      "text": "Their numbered men, in the counting of every male from a month old and upward, their numbered men were 7,500.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 23,
+      "text": "The families of the Gershonites were to camp behind the tabernacle westward,",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 24,
+      "text": "and the leader of the fathers’ households of the Gershonites: Eliasaph the son of Lael.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 25,
+      "text": "Now the duties of the sons of Gershon in the tent of meeting included the tabernacle and the tent, its covering, and the curtain for the entrance of the tent of meeting,",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 26,
+      "text": "and the curtains of the courtyard, the curtain for the entrance of the courtyard which is around the tabernacle and the altar, and its ropes, according to all the service concerning them.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 27,
+      "text": "Of Kohath was the family of the Amramites, the family of the Izharites, the family of the Hebronites, and the family of the Uzzielites; these were the families of the Kohathites.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 28,
+      "text": "In the counting of every male from a month old and upward, there were 8,600, performing the duties of the sanctuary.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 29,
+      "text": "The families of the sons of Kohath were to camp on the south side of the tabernacle,",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 30,
+      "text": "and the leader of the fathers’ households of the Kohathite families: Elizaphan the son of Uzziel.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 31,
+      "text": "Now their duties included the ark, the table, the lampstand, the altars, the utensils of the sanctuary with which they minister, the curtain, and all the service concerning them;",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 32,
+      "text": "and Eleazar the son of Aaron the priest was the head of the leaders of Levi, and he had the supervision of those who performed the duties of the sanctuary.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 33,
+      "text": "Of Merari was the family of the Mahlites and the family of the Mushites; these were the families of Merari.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 34,
+      "text": "Their numbered men in the counting of every male from a month old and upward: 6,200.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 35,
+      "text": "And the leader of the fathers’ households of the families of Merari was Zuriel the son of Abihail. They were to camp on the northward side of the tabernacle.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 36,
+      "text": "Now the appointment of duties of the sons of Merari included the framework of the tabernacle, its bars, its pillars, its bases, all its equipment, and all the service concerning them,",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 37,
+      "text": "and the pillars around the courtyard with their bases, their pegs, and their ropes.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 38,
+      "text": "Now those who were to camp in front of the tabernacle eastward, in front of the tent of meeting toward the sunrise, were Moses and Aaron and his sons, performing the duties of the sanctuary for the obligation of the sons of Israel; but the layman coming near was to be put to death.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 39,
+      "text": "All the numbered men of the Levites, whom Moses and Aaron counted at the command of the Lord by their families, every male from a month old and upward, were twenty-two thousand.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 40,
+      "text": "Then the Lord said to Moses, “Count every firstborn male of the sons of Israel from a month old and upward, and make a list of their names.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 41,
+      "text": "And you shall take the Levites for Me—I am the Lord—instead of all the firstborn among the sons of Israel; and the cattle of the Levites in place of all the firstborn among the cattle of the sons of Israel.”",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 42,
+      "text": "So Moses counted all the firstborn among the sons of Israel, just as the Lord had commanded him;",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 43,
+      "text": "and all the firstborn males, by the number of names from a month old and upward for their numbered men, were 22,273.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 44,
+      "text": "Then the Lord spoke to Moses, saying,",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 45,
+      "text": "“Take the Levites in place of all the firstborn among the sons of Israel, and the cattle of the Levites in place of their cattle. And the Levites shall be Mine; I am the Lord.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 46,
+      "text": "And as a redemption price for the 273 of the firstborn of the sons of Israel who are in excess of the number of the Levites,",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 47,
+      "text": "you shall take five shekels apiece, per head; you shall take them in terms of the shekel of the sanctuary (the shekel is twenty gerahs),",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 48,
+      "text": "and you shall give the money, the redemption price of those who are in excess among them, to Aaron and to his sons.”",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 49,
+      "text": "So Moses took the redemption money from those who were in excess of the number of those redeemed by the Levites;",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 50,
+      "text": "from the firstborn of the sons of Israel he took the money in terms of the shekel of the sanctuary, 1,365.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Numbers",
+      "chapter": 3,
+      "verse": 51,
+      "text": "Then Moses gave the redemption money to Aaron and to his sons, at the command of the Lord, just as the Lord had commanded Moses.",
+      "header": "",
+      "footer": ""
+    }
+  ]
+}

@@ -73,26 +73,33 @@ const translationInfo: Record<string, Omit<BibleVersion, 'id'>> = {
     year: 1982,
     description: 'Updates the KJV language while preserving its style and accuracy.'
   },
-  'CSB': {
-    name: 'Christian Standard Bible',
-    abbreviation: 'CSB',
+  'ASV': {
+    name: 'American Standard Version',
+    abbreviation: 'ASV',
     language: 'English',
-    year: 2017,
-    description: 'Balances accuracy and readability with optimal translation.'
+    year: 1901,
+    description: 'An early 20th century revision of the King James Version.'
   },
-  'MSG': {
-    name: 'The Message',
-    abbreviation: 'MSG',
+  'AKJV': {
+    name: 'Authorized King James Version',
+    abbreviation: 'AKJV',
     language: 'English',
-    year: 2002,
-    description: 'A contemporary paraphrase in modern American idiom.'
+    year: 1769,
+    description: 'The 1769 revision of the King James Version.'
   },
-  'AMP': {
-    name: 'Amplified Bible',
-    abbreviation: 'AMP',
+  'NET': {
+    name: 'New English Translation',
+    abbreviation: 'NET',
     language: 'English',
-    year: 1965,
-    description: 'Expands on the text to give readers a deeper understanding.'
+    year: 2005,
+    description: 'A modern translation with extensive translator notes.'
+  },
+  'YLT': {
+    name: "Young's Literal Translation",
+    abbreviation: 'YLT',
+    language: 'English',
+    year: 1898,
+    description: 'An extremely literal translation preserving Hebrew and Greek word order.'
   },
   'NRSV': {
     name: 'New Revised Standard Version',
@@ -100,6 +107,13 @@ const translationInfo: Record<string, Omit<BibleVersion, 'id'>> = {
     language: 'English',
     year: 1989,
     description: 'An academic translation with inclusive language.'
+  },
+  'NASB1995': {
+    name: 'New American Standard Bible 1995',
+    abbreviation: 'NASB1995',
+    language: 'English',
+    year: 1995,
+    description: 'The 1995 update of the NASB with improved readability.'
   }
 }
 
@@ -119,8 +133,8 @@ export function BibleVersionProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     const loadTranslations = () => {
       try {
-        // List of translations we have downloaded
-        const availableTranslations = ['KJV', 'ESV', 'NIV', 'WEB']
+        // List of translations we have downloaded (will be expanded as more are added)
+        const availableTranslations = ['KJV', 'ESV', 'NIV', 'WEB', 'NASB', 'NKJV', 'NLT', 'ASV']
         
         // Map translation codes to full version objects
         const versionObjects = availableTranslations.map(code => {

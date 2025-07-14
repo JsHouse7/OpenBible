@@ -1,0 +1,30 @@
+{
+  "book_name": "Esther",
+  "chapter": 10,
+  "verses": [
+    {
+      "book_name": "Esther",
+      "chapter": 10,
+      "verse": 1,
+      "text": "King Ahasuerus imposed forced labor on the land and islands of the sea.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Esther",
+      "chapter": 10,
+      "verse": 2,
+      "text": "All the work of his authority and his powerful deeds, and the full accounting of the greatness of Mordecai, to which the king advanced him, are they not written on the scroll of the chronicles of the kings of Media and Persia?",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Esther",
+      "chapter": 10,
+      "verse": 3,
+      "text": "For Mordecai the Jew was second-in-command to King Ahasuerus. He was great for the Jews and popular with many of his brothers, for he sought good for his people, interceding for the welfare of all his descendants.",
+      "header": "",
+      "footer": ""
+    }
+  ]
+}

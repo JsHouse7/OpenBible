@@ -141,6 +141,15 @@ export const loadChapterData = async (book: string, chapter: number, translation
       'ESV': '/bible-json-esv', 
       'NIV': '/bible-json-niv',
       'WEB': '/bible-json-web',
+      'NASB': '/bible-json-nasb',
+      'NKJV': '/bible-json-nkjv',
+      'NLT': '/bible-json-nlt',
+      'ASV': '/bible-json-asv',
+      'AKJV': '/bible-json-akjv',
+      'NET': '/bible-json-net',
+      'YLT': '/bible-json-ylt',
+      'NRSV': '/bible-json-nrsv',
+      'NASB1995': '/bible-json-nasb1995',
       // Fallback to original directory for backward compatibility
       'DEFAULT': '/bible-json'
     }
