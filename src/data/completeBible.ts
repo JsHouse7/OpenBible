@@ -135,8 +135,17 @@ export const loadChapterData = async (book: string, chapter: number, translation
 
   try {
     // Build the file path for the JSON data (public directory)
-    // For WEB translation, use the bible-json-web directory
-    const basePath = translation === 'WEB' ? '/bible-json-web' : '/bible-json'
+    // Map translation codes to directory names
+    const translationDirs: Record<string, string> = {
+      'KJV': '/bible-json-kjv',
+      'ESV': '/bible-json-esv', 
+      'NIV': '/bible-json-niv',
+      'WEB': '/bible-json-web',
+      // Fallback to original directory for backward compatibility
+      'DEFAULT': '/bible-json'
+    }
+    
+    const basePath = translationDirs[translation] || translationDirs['DEFAULT']
     const filePath = `${basePath}/${book}/${chapter}.json`
     
     // Load the JSON file

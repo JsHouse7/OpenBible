@@ -13,6 +13,7 @@ import { useFonts } from '@/hooks/useFonts'
 import { cn } from '@/lib/utils'
 import { loadChapterData, COMPLETE_BIBLE_BOOKS } from '@/data/completeBible'
 import { notesService, highlightsService, bookmarksService } from '@/lib/database'
+import { BibleAttribution } from '@/components/BibleAttribution'
 import type { BibleVerse } from '@/data/completeBible'
 
 interface Note {
@@ -431,6 +432,9 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
             <p>No verses available for this chapter.</p>
           </div>
         )}
+        
+        {/* Attribution */}
+        <BibleAttribution variant="footer" className="mt-8" />
       </div>
 
       {/* Note Modal */}

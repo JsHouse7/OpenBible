@@ -1,0 +1,38 @@
+{
+  "book_name": "Psalms",
+  "chapter": 123,
+  "verses": [
+    {
+      "book_name": "Psalms",
+      "chapter": 123,
+      "verse": 1,
+      "text": "I lift up my eyes to you,\n    you who sit in the heavens.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Psalms",
+      "chapter": 123,
+      "verse": 2,
+      "text": "Behold, as the eyes of servants look to the hand of their master,\n    as the eyes of a maid to the hand of her mistress,\n    so our eyes look to Yahweh, our God,\n    until he has mercy on us.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Psalms",
+      "chapter": 123,
+      "verse": 3,
+      "text": "Have mercy on us, Yahweh, have mercy on us,\n    for we have endured much contempt.",
+      "header": "",
+      "footer": ""
+    },
+    {
+      "book_name": "Psalms",
+      "chapter": 123,
+      "verse": 4,
+      "text": "Our soul is exceedingly filled with the scoffing of those who are at ease,\n    with the contempt of the proud.",
+      "header": "",
+      "footer": ""
+    }
+  ]
+}

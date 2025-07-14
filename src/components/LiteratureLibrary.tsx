@@ -397,7 +397,7 @@ const LiteratureLibrary = () => {
             </CardContent>
           </Card>
         ))}
-        })}
+
       </div>
       
       {/* Literature Reader Modal */}

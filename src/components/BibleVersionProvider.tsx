@@ -1,7 +1,6 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { bibleService } from '@/lib/database'
 
 interface BibleVersion {
   id: string
@@ -116,41 +115,29 @@ export function BibleVersionProvider({ children }: { children: React.ReactNode }
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Load available translations from the database
+  // Load available translations from downloaded files
   useEffect(() => {
-    const fetchTranslations = async () => {
+    const loadTranslations = () => {
       try {
-        // Fetch available translations from the database
-        const { data: translations, error } = await bibleService.getAvailableTranslations()
+        // List of translations we have downloaded
+        const availableTranslations = ['KJV', 'ESV', 'NIV', 'WEB']
         
-        if (error || !translations) {
-          console.error('Error fetching translations:', error)
-          // Use fallback version if we can't get translations
-          setAvailableVersions([fallbackVersion])
-        } else {
-          // Map database translations to full version objects
-          const versionObjects = translations.map(code => {
-            const info = translationInfo[code as keyof typeof translationInfo] || {
-              name: `${code} Translation`,
-              abbreviation: code,
-              language: 'Unknown',
-              description: 'Bible translation'
-            }
-            
-            return {
-              id: (code as string).toLowerCase(),
-              ...info
-            }
-          })
-          
-          // If we have no versions, use the fallback
-          if (versionObjects.length === 0) {
-            setAvailableVersions([fallbackVersion])
-          } else {
-            setAvailableVersions(versionObjects)
+        // Map translation codes to full version objects
+        const versionObjects = availableTranslations.map(code => {
+          const info = translationInfo[code as keyof typeof translationInfo] || {
+            name: `${code} Translation`,
+            abbreviation: code,
+            language: 'English',
+            description: 'Bible translation from jadenzaleski/BibleTranslations repository'
           }
-        }
+          
+          return {
+            id: code.toLowerCase(),
+            ...info
+          }
+        })
         
+        setAvailableVersions(versionObjects)
         setIsLoading(false)
       } catch (err) {
         console.error('Error in translation loading:', err)
@@ -159,7 +146,7 @@ export function BibleVersionProvider({ children }: { children: React.ReactNode }
       }
     }
     
-    fetchTranslations()
+    loadTranslations()
   }, [])
   
   // Load saved version preference once we have available versions
