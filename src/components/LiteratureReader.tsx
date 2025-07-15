@@ -1,144 +1,57 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, BookOpen, Bookmark, Download } from 'lucide-react'
+import { ChevronLeft, ChevronRight, BookOpen, Bookmark, Download, X, Menu, Settings, Type, Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+import { Slider } from '@/components/ui/slider'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useAnimations } from '@/components/AnimationProvider'
 import { useFonts } from '@/hooks/useFonts'
 import { cn } from '@/lib/utils'
+import { LiteratureService, LiteratureWork } from '@/lib/literatureService'
 
-interface LiteratureWork {
-  id: string
-  title: string
-  author: string
-  description: string
-  year: number
-  pages: number
-  readingTime: number
-  difficulty: 'beginner' | 'intermediate' | 'advanced'
-  tags: string[]
-  content: LiteratureChapter[]
-}
-
-interface LiteratureChapter {
-  id: string
-  title: string
-  content: string
-  pageStart: number
-  pageEnd: number
-}
+// Using LiteratureWork and LiteratureChapter from literatureService
 
 interface LiteratureReaderProps {
   workId: string
   onClose: () => void
 }
 
-// Load literature works from JSON files
-const getLiteratureWork = async (workId: string): Promise<LiteratureWork | null> => {
-  try {
-    let jsonPath = ''
-    let metadata = {}
-    
-    switch (workId) {
-      case 'bondage-of-will':
-        jsonPath = '/literature/bondage_of_the_will.json'
-        metadata = {
-          id: 'bondage-of-will',
-          description: 'Luther\'s response to Erasmus on free will, defending the doctrine of predestination and divine sovereignty in salvation.',
-          pages: 320,
-          readingTime: 480,
-          difficulty: 'advanced' as const,
-          tags: ['reformation', 'predestination', 'free will', 'salvation', 'theology']
-        }
-        break
-      case 'pilgrims-progress':
-        jsonPath = '/literature/pilgrims_progress.json'
-        metadata = {
-          id: 'pilgrims-progress',
-          description: 'A Christian allegory following Christian\'s journey from the City of Destruction to the Celestial City, depicting the spiritual life.',
-          pages: 320,
-          readingTime: 480,
-          difficulty: 'intermediate' as const,
-          tags: ['allegory', 'spiritual journey', 'salvation', 'christian life', 'pilgrimage']
-        }
-        break
-      case 'imitation-of-christ':
-        jsonPath = '/literature/imitation_of_christ.json'
-        metadata = {
-          id: 'imitation-of-christ',
-          description: 'A devotional book emphasizing the interior life and spiritual union with Jesus Christ through practical spiritual guidance.',
-          pages: 240,
-          readingTime: 360,
-          difficulty: 'intermediate' as const,
-          tags: ['devotional', 'mysticism', 'spiritual discipline', 'imitation', 'contemplation']
-        }
-        break
-      case 'institutes-christian-religion':
-        jsonPath = '/literature/institutes.json'
-        metadata = {
-          id: 'institutes-christian-religion',
-          description: 'Calvin\'s masterwork of systematic theology, covering the knowledge of God, redemption in Christ, and the Christian life.',
-          pages: 1521,
-          readingTime: 2280,
-          difficulty: 'advanced' as const,
-          tags: ['systematic theology', 'reformation', 'doctrine', 'sovereignty of God', 'predestination']
-        }
-        break
-      default:
-        return null
-    }
-    
-    const response = await fetch(jsonPath)
-    if (!response.ok) {
-      throw new Error(`Failed to load ${jsonPath}`)
-    }
-    
-    const data = await response.json()
-    
-    // Transform the data to match our interface
-    const content: LiteratureChapter[] = data.chapters?.map((chapter: any, index: number) => ({
-      id: `chapter-${index + 1}`,
-      title: chapter.title,
-      content: chapter.content,
-      pageStart: index * 10 + 1,
-      pageEnd: (index + 1) * 10
-    })) || []
-    
-    return {
-      ...metadata,
-      title: data.title,
-      author: data.author,
-      year: data.year || 1500,
-      content
-    } as LiteratureWork
-    
-  } catch (error) {
-    console.error('Error loading literature work:', error)
-    return null
-  }
-}
+
 
 export function LiteratureReader({ workId, onClose }: LiteratureReaderProps) {
   const [work, setWork] = useState<LiteratureWork | null>(null)
   const [currentChapter, setCurrentChapter] = useState(0)
   const [readingProgress, setReadingProgress] = useState(0)
+  const [fontSize, setFontSize] = useState(16)
+  const [lineHeight, setLineHeight] = useState(1.6)
+  const [fontFamily, setFontFamily] = useState('serif')
+  const [isDarkMode, setIsDarkMode] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const { getTransitionClass } = useAnimations()
   const { getBibleTextClasses, getUITextClasses, getHeadingClasses } = useFonts()
 
   useEffect(() => {
     const loadWork = async () => {
-      const literatureWork = await getLiteratureWork(workId)
-      setWork(literatureWork)
+      try {
+        const literatureWork = await LiteratureService.getLiteratureWork(workId)
+        setWork(literatureWork)
+      } catch (error) {
+        console.error('Error loading literature work:', error)
+        setWork(null)
+      }
     }
     loadWork()
   }, [workId])
 
   useEffect(() => {
-    if (work && work.content.length > 0) {
-      const progress = ((currentChapter + 1) / work.content.length) * 100
+    if (work && work.chapters.length > 0) {
+      const progress = ((currentChapter + 1) / work.chapters.length) * 100
       setReadingProgress(progress)
     }
   }, [currentChapter, work])
@@ -150,7 +63,7 @@ export function LiteratureReader({ workId, onClose }: LiteratureReaderProps) {
   }
 
   const handleNextChapter = () => {
-    if (work && currentChapter < work.content.length - 1) {
+    if (work && currentChapter < work.chapters.length - 1) {
       setCurrentChapter(currentChapter + 1)
     }
   }
@@ -178,71 +91,195 @@ export function LiteratureReader({ workId, onClose }: LiteratureReaderProps) {
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
         <Card className="w-full max-w-2xl">
           <CardContent className="p-6 text-center">
-            <p className={cn("text-lg", getUITextClasses())}>Work not found</p>
-            <Button onClick={onClose} className="mt-4">
-              Close
-            </Button>
+            <div className="space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className={cn("text-lg", getUITextClasses())}>Loading literature work...</p>
+              <Button onClick={onClose} variant="outline">
+                Cancel
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  const currentContent = work.content[currentChapter]
+  const currentContent = work.chapters[currentChapter]
+
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen)
+  }
+
+  const fontFamilyOptions = {
+    serif: 'font-serif',
+    sans: 'font-sans',
+    mono: 'font-mono'
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        <CardHeader className="border-b">
+    <div className={cn(
+      "fixed inset-0 z-50 transition-all duration-300",
+      isFullscreen ? "bg-background" : "bg-black/50 flex items-center justify-center p-2 sm:p-4",
+      isDarkMode && "dark"
+    )}>
+      <Card className={cn(
+        "w-full overflow-hidden transition-all duration-300",
+        isFullscreen 
+          ? "h-full max-w-none rounded-none" 
+          : "max-w-5xl max-h-[95vh] sm:max-h-[90vh] rounded-lg"
+      )}>
+        {/* Header */}
+        <CardHeader className={cn(
+          "border-b transition-all duration-300",
+          isFullscreen ? "px-4 py-3" : "px-4 sm:px-6 py-4"
+        )}>
           <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <CardTitle className={cn("text-xl", getHeadingClasses())}>
+            <div className="flex-1 min-w-0">
+              <CardTitle className={cn(
+                "text-lg sm:text-xl truncate", 
+                getHeadingClasses()
+              )}>
                 {work.title}
               </CardTitle>
-              <p className={cn("text-sm text-muted-foreground mt-1", getUITextClasses())}>
+              <p className={cn(
+                "text-xs sm:text-sm text-muted-foreground mt-1 truncate", 
+                getUITextClasses()
+              )}>
                 by {work.author} • {work.year}
               </p>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-2 ml-2">
               <Badge 
                 variant="secondary" 
-                className={`text-xs ${getDifficultyColor(work.difficulty)} text-white`}
+                className={cn(
+                  "text-xs px-2 py-1 text-white",
+                  getDifficultyColor(work.difficulty)
+                )}
               >
                 {work.difficulty}
               </Badge>
-              <Button variant="ghost" size="sm" onClick={onClose}>
-                ✕
+              
+              {/* Settings Popover */}
+              <Popover open={showSettings} onOpenChange={setShowSettings}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4" align="end">
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-sm">Reading Settings</h4>
+                    
+                    {/* Font Size */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium">Font Size: {fontSize}px</label>
+                      <Slider
+                        value={[fontSize]}
+                        onValueChange={(value) => setFontSize(value[0])}
+                        max={24}
+                        min={12}
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    {/* Line Height */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium">Line Height: {lineHeight}</label>
+                      <Slider
+                        value={[lineHeight]}
+                        onValueChange={(value) => setLineHeight(value[0])}
+                        max={2.5}
+                        min={1.2}
+                        step={0.1}
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    {/* Font Family */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium">Font Family</label>
+                      <Select value={fontFamily} onValueChange={setFontFamily}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="serif">Serif</SelectItem>
+                          <SelectItem value="sans">Sans Serif</SelectItem>
+                          <SelectItem value="mono">Monospace</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Dark Mode Toggle */}
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium">Dark Mode</label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsDarkMode(!isDarkMode)}
+                        className="h-8 w-8 p-0"
+                      >
+                        {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    
+                    {/* Fullscreen Toggle */}
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium">Fullscreen</label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleFullscreen}
+                        className="h-8 w-8 p-0"
+                      >
+                        <BookOpen className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+                <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
           
           {/* Progress Bar */}
-          <div className="mt-4">
+          <div className="mt-3 sm:mt-4">
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
               <span className={getUITextClasses()}>Progress</span>
               <span className={getUITextClasses()}>{Math.round(readingProgress)}%</span>
             </div>
-            <Progress value={readingProgress} className="h-2" />
+            <Progress value={readingProgress} className="h-1.5 sm:h-2" />
           </div>
           
           {/* Chapter Navigation */}
-          <div className="flex items-center justify-between mt-4">
+          <div className="flex items-center justify-between mt-3 sm:mt-4 gap-2">
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handlePreviousChapter}
               disabled={currentChapter === 0}
+              className="flex-shrink-0 px-2 sm:px-3"
             >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Previous
+              <ChevronLeft className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Previous</span>
             </Button>
             
-            <div className="text-center">
-              <p className={cn("text-sm font-medium", getUITextClasses())}>
+            <div className="text-center min-w-0 flex-1 px-2">
+              <p className={cn(
+                "text-xs sm:text-sm font-medium truncate", 
+                getUITextClasses()
+              )}>
                 {currentContent?.title}
               </p>
-              <p className={cn("text-xs text-muted-foreground", getUITextClasses())}>
-                Chapter {currentChapter + 1} of {work.content.length}
+              <p className={cn(
+                "text-xs text-muted-foreground", 
+                getUITextClasses()
+              )}>
+                Chapter {currentChapter + 1} of {work.chapters.length}
               </p>
             </div>
             
@@ -250,32 +287,48 @@ export function LiteratureReader({ workId, onClose }: LiteratureReaderProps) {
               variant="outline" 
               size="sm" 
               onClick={handleNextChapter}
-              disabled={currentChapter === work.content.length - 1}
+              disabled={currentChapter === work.chapters.length - 1}
+              className="flex-shrink-0 px-2 sm:px-3"
             >
-              Next
-              <ChevronRight className="h-4 w-4 ml-1" />
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight className="h-4 w-4 sm:ml-1" />
             </Button>
           </div>
         </CardHeader>
         
-        <CardContent className="p-6 overflow-y-auto max-h-[60vh]">
-          <div className={cn(
-            "prose prose-lg max-w-none",
-            "prose-headings:font-bold prose-headings:text-foreground",
-            "prose-p:text-foreground prose-p:leading-relaxed",
-            "prose-strong:text-foreground",
-            getBibleTextClasses(),
-            getTransitionClass('default')
-          )}>
-            {currentContent?.content.split('\n').map((paragraph, index) => {
+        {/* Content */}
+        <CardContent className={cn(
+          "overflow-y-auto transition-all duration-300",
+          isFullscreen 
+            ? "p-4 sm:p-8 max-h-[calc(100vh-200px)]" 
+            : "p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh]"
+        )}>
+          <div 
+            className={cn(
+              "max-w-none transition-all duration-300",
+              fontFamilyOptions[fontFamily as keyof typeof fontFamilyOptions],
+              "prose-headings:font-bold prose-headings:text-foreground",
+              "prose-p:text-foreground",
+              "prose-strong:text-foreground",
+              getBibleTextClasses(),
+              getTransitionClass('default')
+            )}
+            style={{
+              fontSize: `${fontSize}px`,
+              lineHeight: lineHeight
+            }}
+          >
+            {currentContent?.content.split('\n').map((paragraph: string, index: number) => {
               if (paragraph.trim() === '') return null
               
               // Handle scripture references (text in quotes)
               if (paragraph.includes('"') && paragraph.includes('—')) {
                 const parts = paragraph.split('—')
                 return (
-                  <div key={index} className="mb-6 p-4 bg-muted/50 rounded-lg border-l-4 border-primary">
-                    <p className="text-lg italic mb-2">{parts[0].trim()}</p>
+                  <div key={index} className="mb-4 sm:mb-6 p-3 sm:p-4 bg-muted/50 rounded-lg border-l-4 border-primary">
+                    <p className="text-base sm:text-lg italic mb-2" style={{ fontSize: `${fontSize + 2}px` }}>
+                      {parts[0].trim()}
+                    </p>
                     {parts[1] && (
                       <p className="text-sm text-muted-foreground font-medium">
                         — {parts[1].trim()}
@@ -286,7 +339,14 @@ export function LiteratureReader({ workId, onClose }: LiteratureReaderProps) {
               }
               
               return (
-                <p key={index} className="mb-4 text-justify leading-relaxed">
+                <p 
+                  key={index} 
+                  className="mb-3 sm:mb-4 text-justify"
+                  style={{ 
+                    lineHeight: lineHeight,
+                    fontSize: `${fontSize}px`
+                  }}
+                >
                   {paragraph}
                 </p>
               )
@@ -294,25 +354,29 @@ export function LiteratureReader({ workId, onClose }: LiteratureReaderProps) {
           </div>
         </CardContent>
         
-        <div className="border-t p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-              <span className={getUITextClasses()}>
-                Pages {currentContent?.pageStart}-{currentContent?.pageEnd}
+        {/* Footer */}
+        <div className={cn(
+          "border-t transition-all duration-300",
+          isFullscreen ? "p-3" : "p-3 sm:p-4"
+        )}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center space-x-2 sm:space-x-4 text-xs sm:text-sm text-muted-foreground min-w-0">
+              <span className={cn("truncate", getUITextClasses())}>
+                Chapter {currentChapter + 1} of {work.chapters.length}
               </span>
-              <span className={getUITextClasses()}>
-                {formatReadingTime(Math.round(work.readingTime / work.content.length))} read time
+              <span className={cn("hidden sm:inline", getUITextClasses())}>
+                {formatReadingTime(Math.round((work.metadata?.estimatedReadingTime || 0) / work.chapters.length))} read time
               </span>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm">
-                <Bookmark className="h-4 w-4 mr-1" />
-                Bookmark
+            <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3">
+                <Bookmark className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Bookmark</span>
               </Button>
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-1" />
-                Download
+              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3">
+                <Download className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Download</span>
               </Button>
             </div>
           </div>

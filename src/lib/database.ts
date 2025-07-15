@@ -15,7 +15,7 @@ export const bibleService = {
     }
 
     // Remove duplicates
-    const uniqueTranslations = [...new Set(data?.map(item => item.translation) || [])]
+    const uniqueTranslations = [...new Set(data?.map((item: any) => item.translation) || [])]
     return { data: uniqueTranslations, error: null }
   },
 
@@ -87,7 +87,7 @@ export const bibleService = {
     }
 
     // Remove duplicates
-    const uniqueBooks = [...new Set(data?.map(item => item.book) || [])]
+    const uniqueBooks = [...new Set(data?.map((item: any) => item.book) || [])]
     return { data: uniqueBooks, error: null }
   },
 
@@ -104,7 +104,7 @@ export const bibleService = {
       return { data: null, error }
     }
 
-    const maxChapter = Math.max(...(data?.map(item => item.chapter) || [0]))
+    const maxChapter = Math.max(...(data?.map((item: any) => item.chapter) || [0]))
     return { data: maxChapter, error: null }
   }
 }

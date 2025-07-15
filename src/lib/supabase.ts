@@ -26,8 +26,18 @@ const createMockQueryBuilder = () => {
     then: (resolve: Function) => {
       // Return empty data for all queries in development
       return Promise.resolve({ data: [], error: null }).then((value) => resolve(value))
-    }
+    },
+    // Make it thenable to satisfy TypeScript
+    catch: (reject: Function) => Promise.resolve({ data: [], error: null }),
+    finally: (callback: Function) => Promise.resolve({ data: [], error: null })
   }
+  
+  // Make the builder a proper thenable
+  Object.defineProperty(mockBuilder, Symbol.toStringTag, {
+    value: 'Promise',
+    configurable: true
+  })
+  
   return mockBuilder
 }
 
@@ -43,11 +53,22 @@ export const supabase = isSupabaseConfigured()
       // Mock client for development without Supabase
       auth: {
         getUser: () => Promise.resolve({ data: { user: null }, error: null }),
-        signIn: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
-        signOut: () => Promise.resolve({ error: null })
+        getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+        onAuthStateChange: (callback: Function) => {
+          // Return a mock subscription
+          return {
+            data: { subscription: { unsubscribe: () => {} } },
+            unsubscribe: () => {}
+          }
+        },
+        signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Supabase not configured') }),
+        signUp: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Supabase not configured') }),
+        signOut: () => Promise.resolve({ error: null }),
+        resetPasswordForEmail: () => Promise.resolve({ error: new Error('Supabase not configured') }),
+        updateUser: () => Promise.resolve({ data: { user: null }, error: new Error('Supabase not configured') })
       },
       from: (table: string) => createMockQueryBuilder()
-    }
+    } as any
 
 // Database types
 export interface Bible {

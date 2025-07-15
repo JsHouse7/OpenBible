@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -11,8 +11,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
 import { LiteratureReader } from '@/components/LiteratureReader'
+import { LiteratureAdmin } from '@/components/LiteratureAdmin'
 import { useFonts } from '@/hooks/useFonts'
 import { cn } from '@/lib/utils'
+import { LiteratureService, LiteratureWorkSummary, LiteratureIndex } from '@/lib/literatureService'
+import Link from 'next/link'
 import { 
   Search,
   BookOpen, 
@@ -22,168 +25,115 @@ import {
   Heart,
   Calendar,
   BookmarkIcon,
-  Eye
+  Eye,
+  Plus,
+  Upload,
+  Settings,
+  BarChart3,
+  Filter,
+  Trash2
 } from 'lucide-react'
 
 interface Author {
-  id: string
   name: string
-  bio: string
-  period: string
-  nationality: string
-  category: 'theologian' | 'mystic' | 'reformer' | 'apologist' | 'puritan' | 'modern'
-  works: Work[]
-}
-
-interface Work {
-  id: string
-  title: string
-  description: string
-  year: number
-  pages: number
-  readingTime: number
-  difficulty: 'beginner' | 'intermediate' | 'advanced'
-  tags: string[]
-  progress?: number
-  isBookmarked?: boolean
-  rating?: number
+  works: LiteratureWorkSummary[]
+  totalWorks: number
+  period?: string
+  nationality?: string
+  category?: string
 }
 
 const LiteratureLibrary = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedWork, setSelectedWork] = useState<string | null>(null)
+  const [showAdmin, setShowAdmin] = useState(false)
+
+  const [works, setWorks] = useState<LiteratureWorkSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [stats, setStats] = useState<any>(null)
   const { getUITextClasses, getHeadingClasses } = useFonts()
 
-  const authors: Author[] = [
-    {
-      id: 'ch-spurgeon',
-      name: 'Charles Haddon Spurgeon',
-      bio: 'British Particular Baptist preacher known as the "Prince of Preachers" for his powerful sermons and theological writings.',
-      period: '1834-1892',
-      nationality: 'British',
-      category: 'puritan',
-      works: [
-        {
-          id: 'morning-evening',
-          title: 'Morning and Evening',
-          description: 'Daily devotional readings for morning and evening, offering spiritual nourishment and biblical meditation for every day of the year.',
-          year: 1869,
-          pages: 732,
-          readingTime: 1095,
-          difficulty: 'beginner',
-          tags: ['devotional', 'daily reading', 'meditation', 'spiritual growth'],
-          progress: 0,
-          isBookmarked: false,
-          rating: 5
-        }
-      ]
-    },
-    {
-      id: 'martin-luther',
-      name: 'Martin Luther',
-      bio: 'German theologian and reformer whose writings sparked the Protestant Reformation and transformed Christianity.',
-      period: '1483-1546',
-      nationality: 'German',
-      category: 'reformer',
-      works: [
-        {
-          id: 'bondage-of-will',
-          title: 'The Bondage of the Will',
-          description: 'Luther\'s response to Erasmus on free will, defending the doctrine of predestination and divine sovereignty in salvation.',
-          year: 1525,
-          pages: 320,
-          readingTime: 480,
-          difficulty: 'advanced',
-          tags: ['reformation', 'predestination', 'free will', 'salvation', 'theology'],
-          progress: 0,
-          isBookmarked: true,
-          rating: 5
-        }
-      ]
-    },
-    {
-      id: 'john-bunyan',
-      name: 'John Bunyan',
-      bio: 'English writer and Puritan preacher, author of the most famous Christian allegory in the English language.',
-      period: '1628-1688',
-      nationality: 'English',
-      category: 'puritan',
-      works: [
-        {
-          id: 'pilgrims-progress',
-          title: 'The Pilgrim\'s Progress',
-          description: 'A Christian allegory following Christian\'s journey from the City of Destruction to the Celestial City, depicting the spiritual life.',
-          year: 1678,
-          pages: 320,
-          readingTime: 480,
-          difficulty: 'intermediate',
-          tags: ['allegory', 'spiritual journey', 'salvation', 'christian life', 'pilgrimage'],
-          progress: 0,
-          isBookmarked: false,
-          rating: 5
-        }
-      ]
-    },
-    {
-      id: 'thomas-kempis',
-      name: 'Thomas à Kempis',
-      bio: 'German-Dutch Catholic monk and mystic, author of one of the most influential works of Christian devotional literature.',
-      period: '1380-1471',
-      nationality: 'German-Dutch',
-      category: 'mystic',
-      works: [
-        {
-          id: 'imitation-of-christ',
-          title: 'The Imitation of Christ',
-          description: 'A devotional book emphasizing the interior life and spiritual union with Jesus Christ through practical spiritual guidance.',
-          year: 1418,
-          pages: 240,
-          readingTime: 360,
-          difficulty: 'intermediate',
-          tags: ['devotional', 'mysticism', 'spiritual discipline', 'imitation', 'contemplation'],
-          progress: 0,
-          isBookmarked: true,
-          rating: 5
-        }
-      ]
-    },
-    {
-      id: 'john-calvin',
-      name: 'John Calvin',
-      bio: 'French theologian and reformer whose systematic theology profoundly influenced Protestant Christianity worldwide.',
-      period: '1509-1564',
-      nationality: 'French',
-      category: 'reformer',
-      works: [
-        {
-          id: 'institutes-christian-religion',
-          title: 'Institutes of the Christian Religion',
-          description: 'Calvin\'s masterwork of systematic theology, covering the knowledge of God, redemption in Christ, and the Christian life.',
-          year: 1536,
-          pages: 1521,
-          readingTime: 2280,
-          difficulty: 'advanced',
-          tags: ['systematic theology', 'reformation', 'doctrine', 'sovereignty of God', 'predestination'],
-          progress: 0,
-          isBookmarked: false,
-          rating: 5
-        }
-      ]
+  // Load literature works on component mount
+  useEffect(() => {
+    loadLiteratureWorks()
+    loadStats()
+  }, [])
+
+  const loadLiteratureWorks = async () => {
+    try {
+      setLoading(true)
+      const index = await LiteratureService.getLiteratureIndex()
+      setWorks(index.works)
+      setError(null)
+    } catch (err) {
+      setError('Failed to load literature works')
+      console.error('Error loading literature works:', err)
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
 
-  const allCategories = ['all', 'theologian', 'mystic', 'reformer', 'apologist', 'puritan', 'modern']
+  const loadStats = async () => {
+    try {
+      const collectionStats = await LiteratureService.getCollectionStats()
+      setStats(collectionStats)
+    } catch (err) {
+      console.error('Error loading stats:', err)
+    }
+  }
 
-  const filteredAuthors = authors.filter(author => {
-    const matchesSearch = author.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         author.works.some(work => 
-                           work.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           work.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-                         )
-    const matchesCategory = selectedCategory === 'all' || author.category === selectedCategory
+  const handleWorkAdded = () => {
+    loadLiteratureWorks()
+    loadStats()
+  }
+
+  const handleDeleteWork = async (workId: string) => {
+    if (confirm('Are you sure you want to delete this work?')) {
+      try {
+        await LiteratureService.deleteLiteratureWork(workId)
+        await loadLiteratureWorks()
+        await loadStats()
+      } catch (err) {
+        console.error('Error deleting work:', err)
+        alert('Failed to delete work')
+      }
+    }
+  }
+
+  // Group works by author
+  const groupedAuthors: Author[] = works.reduce((acc: Author[], work: LiteratureWorkSummary) => {
+    const existingAuthor = acc.find((author: Author) => author.name === work.author)
+    if (existingAuthor) {
+      existingAuthor.works.push(work)
+      existingAuthor.totalWorks++
+    } else {
+      acc.push({
+        name: work.author,
+        works: [work],
+        totalWorks: 1
+      })
+    }
+    return acc
+  }, [])
+
+  const allCategories = ['all', 'beginner', 'intermediate', 'advanced']
+
+  const filteredWorks = works.filter((work: LiteratureWorkSummary) => {
+    const matchesSearch = work.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         work.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         work.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCategory = selectedCategory === 'all' || work.difficulty === selectedCategory
     return matchesSearch && matchesCategory
   })
+
+  const filteredAuthors = groupedAuthors.filter((author: Author) => 
+    author.works.some((work: LiteratureWorkSummary) => filteredWorks.includes(work))
+  ).map((author: Author) => ({
+    ...author,
+    works: author.works.filter((work: LiteratureWorkSummary) => filteredWorks.includes(work))
+  }))
 
   const formatReadingTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60)
@@ -203,16 +153,43 @@ const LiteratureLibrary = () => {
     }
   }
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'theologian': return '📚'
-      case 'mystic': return '🕊️'
-      case 'reformer': return '⚡'
-      case 'apologist': return '🛡️'
-      case 'puritan': return '✝️'
-      case 'modern': return '🌟'
+  const getDifficultyIcon = (difficulty: string) => {
+    switch (difficulty) {
+      case 'beginner': return '🌱'
+      case 'intermediate': return '📚'
+      case 'advanced': return '🎓'
       default: return '📖'
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center space-y-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <p className={cn("text-muted-foreground", getUITextClasses())}>Loading literature library...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <p className={cn("text-red-600", getUITextClasses())}>{error}</p>
+              <Button onClick={loadLiteratureWorks} className={getUITextClasses()}>
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -225,10 +202,64 @@ const LiteratureLibrary = () => {
             Explore classic Christian literature and spiritual writings
           </p>
         </div>
-        <Badge variant="secondary" className={cn("px-3 py-1", getUITextClasses())}>
-          {authors.reduce((acc, author) => acc + author.works.length, 0)} works available
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className={cn("px-3 py-1", getUITextClasses())}>
+            {works.length} works available
+          </Badge>
+          <Link href="/literature/admin">
+             <Button
+               variant="outline"
+               size="sm"
+               className={getUITextClasses()}
+             >
+               <Settings className="h-4 w-4 mr-2" />
+               Admin
+             </Button>
+           </Link>
+        </div>
       </div>
+
+      {/* Statistics */}
+      {stats && (
+        <Card>
+          <CardHeader>
+            <CardTitle className={cn("flex items-center gap-2", getHeadingClasses())}>
+              <BarChart3 className="h-5 w-5" />
+              Collection Statistics
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className={cn("text-2xl font-bold", getHeadingClasses())}>{stats.totalWorks}</div>
+                <div className={cn("text-sm text-muted-foreground", getUITextClasses())}>Total Works</div>
+              </div>
+              <div className="text-center">
+                <div className={cn("text-2xl font-bold", getHeadingClasses())}>{stats.authorCount}</div>
+                <div className={cn("text-sm text-muted-foreground", getUITextClasses())}>Authors</div>
+              </div>
+              <div className="text-center">
+                <div className={cn("text-2xl font-bold", getHeadingClasses())}>{Math.round(stats.totalWords / 1000)}k</div>
+                <div className={cn("text-sm text-muted-foreground", getUITextClasses())}>Total Words</div>
+              </div>
+              <div className="text-center">
+                <div className={cn("text-2xl font-bold", getHeadingClasses())}>{formatReadingTime(stats.averageReadingTime)}</div>
+                <div className={cn("text-sm text-muted-foreground", getUITextClasses())}>Avg. Reading Time</div>
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className={cn("text-sm font-medium mb-2", getUITextClasses())}>Difficulty Distribution</div>
+              <div className="flex gap-2">
+                {Object.entries(stats.difficultyBreakdown).map(([difficulty, count]: [string, any]) => (
+                  <Badge key={difficulty} variant="outline" className={cn("text-xs", getUITextClasses())}>
+                    {getDifficultyIcon(difficulty)} {difficulty}: {count}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Search and Filters */}
       <Card>
@@ -238,7 +269,7 @@ const LiteratureLibrary = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search authors, titles, or topics..."
+                  placeholder="Search authors, titles, or descriptions..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -251,9 +282,9 @@ const LiteratureLibrary = () => {
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="px-3 py-2 border rounded-md"
               >
-                {allCategories.map(category => (
+                {allCategories.map((category: string) => (
                   <option key={category} value={category}>
-                    {category === 'all' ? 'All Categories' : category.charAt(0).toUpperCase() + category.slice(1)}
+                    {category === 'all' ? 'All Difficulties' : category.charAt(0).toUpperCase() + category.slice(1)}
                   </option>
                 ))}
               </select>
@@ -262,142 +293,103 @@ const LiteratureLibrary = () => {
         </CardContent>
       </Card>
 
-      {/* Authors List */}
+      {/* Authors and Works */}
       <div className="grid gap-6">
-        {filteredAuthors.map((author) => (
-          <Card key={author.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarFallback className="text-lg">
-                      {author.name.split(' ').map(n => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <CardTitle className={cn("text-xl", getHeadingClasses())}>{author.name}</CardTitle>
-                    <CardDescription className={cn("mt-1", getUITextClasses())}>
-                      {author.period} • {author.nationality}
-                    </CardDescription>
-                    <Badge variant="outline" className={cn("mt-2", getUITextClasses())}>
-                      {getCategoryIcon(author.category)} {author.category}
-                    </Badge>
-                  </div>
+        {filteredAuthors.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center space-y-4">
+                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto" />
+                <div>
+                  <h3 className={cn("text-lg font-medium", getHeadingClasses())}>No works found</h3>
+                  <p className={cn("text-muted-foreground", getUITextClasses())}>
+                    Try adjusting your search terms or filters
+                  </p>
                 </div>
               </div>
-              <p className={cn("text-sm text-muted-foreground mt-3", getUITextClasses())}>{author.bio}</p>
-            </CardHeader>
-            <CardContent>
-              <Accordion type="single" collapsible>
-                <AccordionItem value="works">
-                  <AccordionTrigger className={getUITextClasses()}>
-                    Works ({author.works.length})
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {author.works.map((work) => (
-                        <Dialog key={work.id}>
-                          <DialogTrigger asChild>
-                            <Card className="cursor-pointer hover:shadow-md transition-shadow">
-                              <CardContent className="pt-4">
-                                <div className="space-y-2">
-                                    <div className="flex items-start justify-between">
-                                      <h4 className={cn("font-medium text-sm leading-tight", getUITextClasses())}>{work.title}</h4>
-                                    <div className="flex items-center space-x-1">
-                                      {work.isBookmarked && (
-                                        <BookmarkIcon className="h-4 w-4 text-blue-500" />
-                                      )}
-                                      {work.rating && (
-                                        <div className="flex">
-                                          {Array.from({ length: work.rating }).map((_, i) => (
-                                            <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <p className={cn("text-xs text-muted-foreground line-clamp-2", getUITextClasses())}>{work.description}</p>
-                                  <div className="flex items-center justify-between">
-                                    <div className={cn("flex items-center space-x-2 text-xs text-muted-foreground", getUITextClasses())}>
-                                      <Clock className="h-3 w-3" />
-                                      <span>{formatReadingTime(work.readingTime)}</span>
-                                    </div>
-                                    <Badge 
-                                      variant="secondary" 
-                                      className={cn(`text-xs ${getDifficultyColor(work.difficulty)} text-white`, getUITextClasses())}
-                                    >
-                                      {work.difficulty}
-                                    </Badge>
-                                  </div>
-                                  {work.progress !== undefined && work.progress > 0 && (
-                                    <div className="space-y-1">
-                                      <div className={cn("flex justify-between text-xs", getUITextClasses())}>
-                                        <span>Progress</span>
-                                        <span>{work.progress}%</span>
-                                      </div>
-                                      <Progress value={work.progress} className="h-1" />
-                                    </div>
-                                  )}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle className={getHeadingClasses()}>{work.title}</DialogTitle>
-                              <DialogDescription className={getUITextClasses()}>
-                                By {author.name} • {work.year} • {work.pages} pages
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                              <p className={cn("text-sm", getUITextClasses())}>{work.description}</p>
-                              <div className={cn("grid grid-cols-2 gap-4 text-sm", getUITextClasses())}>
-                                <div>
-                                  <span className="font-medium">Reading Time:</span> {formatReadingTime(work.readingTime)}
-                                </div>
-                                <div>
-                                  <span className="font-medium">Difficulty:</span> {work.difficulty}
-                                </div>
-                              </div>
-                              <div>
-                                <span className={cn("font-medium text-sm", getUITextClasses())}>Topics:</span>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {work.tags.map((tag, index) => (
-                                    <Badge key={index} variant="outline" className={cn("text-xs", getUITextClasses())}>
-                                      {tag}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="flex gap-2 pt-4">
-                                <Button 
-                                  className={cn("flex-1", getUITextClasses())}
-                                  onClick={() => setSelectedWork(work.id)}
-                                >
-                                  <BookOpen className="mr-2 h-4 w-4" />
-                                  Start Reading
-                                </Button>
-                                <Button variant="outline" className={getUITextClasses()}>
-                                  <BookmarkIcon className="mr-2 h-4 w-4" />
-                                  Bookmark
-                                </Button>
-                                <Button variant="outline" className={getUITextClasses()}>
-                                  <Download className="mr-2 h-4 w-4" />
-                                  Download
-                                </Button>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
             </CardContent>
           </Card>
-        ))}
-
+        ) : (
+          filteredAuthors.map((author: Author) => (
+            <Card key={author.name}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-4">
+                    <Avatar className="h-16 w-16">
+                      <AvatarFallback className="text-lg">
+                        {author.name.split(' ').map((n: string) => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <CardTitle className={cn("text-xl", getHeadingClasses())}>{author.name}</CardTitle>
+                      <CardDescription className={cn("mt-1", getUITextClasses())}>
+                        {author.totalWorks} work{author.totalWorks !== 1 ? 's' : ''}
+                      </CardDescription>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {author.works.map((work: LiteratureWorkSummary) => (
+                    <Card key={work.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                      <CardContent className="pt-4">
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between">
+                            <h4 className={cn("font-medium text-sm leading-tight", getUITextClasses())}>{work.title}</h4>
+                            <div className="flex items-center space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteWork(work.id)
+                                }}
+                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          <p className={cn("text-xs text-muted-foreground line-clamp-2", getUITextClasses())}>{work.description}</p>
+                          <div className="flex items-center justify-between">
+                            <div className={cn("flex items-center space-x-2 text-xs text-muted-foreground", getUITextClasses())}>
+                              <Clock className="h-3 w-3" />
+                              <span>{formatReadingTime(work.estimatedReadingTime)}</span>
+                            </div>
+                            <Badge 
+                              variant="secondary" 
+                              className={cn(`text-xs ${getDifficultyColor(work.difficulty)} text-white`, getUITextClasses())}
+                            >
+                              {work.difficulty}
+                            </Badge>
+                          </div>
+                          <div className="flex gap-2 pt-2">
+                            <Button 
+                              size="sm"
+                              className={cn("flex-1 text-xs", getUITextClasses())}
+                              onClick={() => setSelectedWork(work.id)}
+                            >
+                              <BookOpen className="mr-1 h-3 w-3" />
+                              Read
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className={cn("text-xs", getUITextClasses())}
+                            >
+                              <Download className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
       
       {/* Literature Reader Modal */}
@@ -406,6 +398,21 @@ const LiteratureLibrary = () => {
           workId={selectedWork} 
           onClose={() => setSelectedWork(null)} 
         />
+      )}
+
+      {/* Admin Modal */}
+      {showAdmin && (
+        <Dialog open={showAdmin} onOpenChange={setShowAdmin}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className={getHeadingClasses()}>Literature Administration</DialogTitle>
+              <DialogDescription className={getUITextClasses()}>
+                Add new literature works to the library
+              </DialogDescription>
+            </DialogHeader>
+            <LiteratureAdmin onWorkAdded={handleWorkAdded} />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

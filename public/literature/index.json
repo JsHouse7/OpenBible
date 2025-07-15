@@ -1,0 +1,57 @@
+{
+  "works": [
+    {
+      "id": "bondage_of_the_will",
+      "title": "The Bondage of the Will",
+      "author": "Martin Luther",
+      "year": 1525,
+      "difficulty": "advanced",
+      "description": "Luther's response to Erasmus on free will, defending the doctrine of predestination and the bondage of the human will in spiritual matters.",
+      "wordCount": 85000,
+      "chapterCount": 35,
+      "estimatedReadingTime": 340,
+      "filename": "bondage_of_the_will.json",
+      "dateAdded": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "pilgrims_progress",
+      "title": "The Pilgrim's Progress",
+      "author": "John Bunyan",
+      "year": 1678,
+      "difficulty": "intermediate",
+      "description": "An allegorical novel about Christian's journey from the City of Destruction to the Celestial City, representing the Christian life.",
+      "wordCount": 108000,
+      "chapterCount": 28,
+      "estimatedReadingTime": 432,
+      "filename": "pilgrims_progress.json",
+      "dateAdded": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "imitation_of_christ",
+      "title": "The Imitation of Christ",
+      "author": "Thomas à Kempis",
+      "year": 1418,
+      "difficulty": "beginner",
+      "description": "A Christian devotional book that emphasizes the interior life and withdrawal from the world for the purpose of following Jesus Christ.",
+      "wordCount": 65000,
+      "chapterCount": 114,
+      "estimatedReadingTime": 260,
+      "filename": "imitation_of_christ.json",
+      "dateAdded": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "institutes",
+      "title": "Institutes of the Christian Religion",
+      "author": "John Calvin",
+      "year": 1536,
+      "difficulty": "advanced",
+      "description": "Calvin's systematic theology covering the knowledge of God, redemption in Christ, and the Christian life.",
+      "wordCount": 450000,
+      "chapterCount": 80,
+      "estimatedReadingTime": 1800,
+      "filename": "institutes.json",
+      "dateAdded": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "lastUpdated": "2024-01-01T00:00:00.000Z"
+}

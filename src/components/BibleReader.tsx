@@ -88,9 +88,9 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
         // Load notes for current chapter
         const { data: notesData } = await notesService.getUserNotes(user.id)
         if (notesData) {
-          const chapterNotes = notesData.filter(note => 
+          const chapterNotes = notesData.filter((note: any) => 
             note.book === book && note.chapter === chapter
-          ).map(note => ({
+          ).map((note: any) => ({
             id: note.id,
             verseId: `${note.book}-${note.chapter}-${note.verse}`,
             text: note.content,
@@ -108,7 +108,7 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
           const highlightSet = new Set<string>()
           const colorMap = new Map<string, string>()
           
-          highlightsData.forEach(highlight => {
+          highlightsData.forEach((highlight: any) => {
             const key = `${highlight.book}-${highlight.chapter}-${highlight.verse}`
             highlightSet.add(key)
             colorMap.set(key, highlight.color)
@@ -121,8 +121,8 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
         // Load bookmarks
         const { data: bookmarksData } = await bookmarksService.getUserBookmarks(user.id)
         if (bookmarksData) {
-          const bookmarkSet = new Set(
-            bookmarksData.map(bookmark => `${bookmark.book}-${bookmark.chapter}-${bookmark.verse}`)
+          const bookmarkSet = new Set<string>(
+            bookmarksData.map((bookmark: any) => `${bookmark.book}-${bookmark.chapter}-${bookmark.verse}`)
           )
           setBookmarks(bookmarkSet)
         }
