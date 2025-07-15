@@ -201,29 +201,29 @@ export class LiteratureService {
   }
 
   /**
-   * Save a file to the literature directory
-   * In a real implementation, this would use a server-side API
+   * Save a file to the literature directory using the API
    */
   private static async saveFile(filename: string, content: string): Promise<void> {
-    // For now, we'll create a download link for the user
-    // In a production app, you'd send this to a server endpoint
-    
-    const blob = new Blob([content], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    
-    // Create a temporary download link
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.style.display = 'none'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    
-    URL.revokeObjectURL(url)
-    
-    // Show instructions to user
-    console.log(`Please save ${filename} to the public/literature/ directory`)
+    try {
+      const response = await fetch('/api/literature/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filename, content }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      console.log(`File ${filename} saved successfully:`, result.message)
+    } catch (error) {
+      console.error(`Error saving file ${filename}:`, error)
+      throw new Error(`Failed to save file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
   /**

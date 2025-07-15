@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { LiteratureParser, LiteratureWork, ParseOptions } from '@/lib/literatureParser'
+import { LiteratureService } from '@/lib/literatureService'
 
 interface UploadStatus {
   status: 'idle' | 'uploading' | 'parsing' | 'success' | 'error'
@@ -142,19 +143,8 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
     setUploadStatus({ status: 'uploading', progress: 80, message: 'Saving literature work...' })
 
     try {
-      // Save to public/literature/ directory
-      const filename = `${previewWork.id}.json`
-      const jsonContent = JSON.stringify(previewWork, null, 2)
-      
-      // In a real implementation, you'd save this to the server
-      // For now, we'll simulate the save and trigger a download
-      const blob = new Blob([jsonContent], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(url)
+      // Save using LiteratureService
+      await LiteratureService.saveLiteratureWork(previewWork)
 
       // Update existing works list
       const newWork: ExistingWork = {
