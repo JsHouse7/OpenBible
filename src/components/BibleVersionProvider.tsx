@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import { userPreferencesService } from '@/lib/userPreferencesService'
 
 interface BibleVersion {
   id: string
@@ -19,108 +20,76 @@ interface BibleVersionContextType {
   isLoading: boolean
 }
 
+const fallbackVersion: BibleVersion = {
+  id: 'kjv',
+  name: 'King James Version',
+  abbreviation: 'KJV',
+  language: 'English',
+  year: 1611,
+  description: 'The classic English translation of the Bible',
+  isDefault: true
+}
+
 const BibleVersionContext = createContext<BibleVersionContextType | undefined>(undefined)
 
-// Mapping of translation codes to full version information
-const translationInfo: Record<string, Omit<BibleVersion, 'id'>> = {
-  'KJV': {
+// Translation information for available versions
+const translationInfo = {
+  KJV: {
     name: 'King James Version',
     abbreviation: 'KJV',
     language: 'English',
     year: 1611,
-    description: 'The classic English translation with traditional language and poetic beauty.',
-    isDefault: true
+    description: 'The classic English translation of the Bible'
   },
-  'WEB': {
-    name: 'World English Bible',
-    abbreviation: 'WEB',
-    language: 'English',
-    year: 2000,
-    description: 'A modern public domain translation based on the American Standard Version.'
-  },
-  'NIV': {
-    name: 'New International Version',
-    abbreviation: 'NIV',
-    language: 'English',
-    year: 1978,
-    description: 'A widely used modern translation balancing accuracy and readability.'
-  },
-  'ESV': {
+  ESV: {
     name: 'English Standard Version',
     abbreviation: 'ESV',
     language: 'English',
     year: 2001,
-    description: 'A literal translation emphasizing word-for-word accuracy.'
+    description: 'A modern English translation emphasizing word-for-word accuracy'
   },
-  'NLT': {
-    name: 'New Living Translation',
-    abbreviation: 'NLT',
+  NIV: {
+    name: 'New International Version',
+    abbreviation: 'NIV',
     language: 'English',
-    year: 1996,
-    description: 'A thought-for-thought translation in contemporary English.'
+    year: 1978,
+    description: 'A popular modern English translation balancing accuracy and readability'
   },
-  'NASB': {
+  WEB: {
+    name: 'World English Bible',
+    abbreviation: 'WEB',
+    language: 'English',
+    year: 2000,
+    description: 'A public domain modern English translation'
+  },
+  NASB: {
     name: 'New American Standard Bible',
     abbreviation: 'NASB',
     language: 'English',
     year: 1971,
-    description: 'Known for its literal accuracy and scholarly approach.'
+    description: 'A literal translation emphasizing accuracy to original texts'
   },
-  'NKJV': {
+  NKJV: {
     name: 'New King James Version',
     abbreviation: 'NKJV',
     language: 'English',
     year: 1982,
-    description: 'Updates the KJV language while preserving its style and accuracy.'
+    description: 'A modern update of the King James Version'
   },
-  'ASV': {
+  NLT: {
+    name: 'New Living Translation',
+    abbreviation: 'NLT',
+    language: 'English',
+    year: 1996,
+    description: 'A thought-for-thought translation emphasizing clarity'
+  },
+  ASV: {
     name: 'American Standard Version',
     abbreviation: 'ASV',
     language: 'English',
     year: 1901,
-    description: 'An early 20th century revision of the King James Version.'
-  },
-  'AKJV': {
-    name: 'Authorized King James Version',
-    abbreviation: 'AKJV',
-    language: 'English',
-    year: 1769,
-    description: 'The 1769 revision of the King James Version.'
-  },
-  'NET': {
-    name: 'New English Translation',
-    abbreviation: 'NET',
-    language: 'English',
-    year: 2005,
-    description: 'A modern translation with extensive translator notes.'
-  },
-  'YLT': {
-    name: "Young's Literal Translation",
-    abbreviation: 'YLT',
-    language: 'English',
-    year: 1898,
-    description: 'An extremely literal translation preserving Hebrew and Greek word order.'
-  },
-  'NRSV': {
-    name: 'New Revised Standard Version',
-    abbreviation: 'NRSV',
-    language: 'English',
-    year: 1989,
-    description: 'An academic translation with inclusive language.'
-  },
-  'NASB1995': {
-    name: 'New American Standard Bible 1995',
-    abbreviation: 'NASB1995',
-    language: 'English',
-    year: 1995,
-    description: 'The 1995 update of the NASB with improved readability.'
+    description: 'An early 20th century American revision of the Bible'
   }
-}
-
-// Default version to use if no translations are available or none is selected
-const fallbackVersion: BibleVersion = {
-  id: 'kjv',
-  ...translationInfo['KJV']
 }
 
 export function BibleVersionProvider({ children }: { children: React.ReactNode }) {
@@ -131,7 +100,7 @@ export function BibleVersionProvider({ children }: { children: React.ReactNode }
 
   // Load available translations from downloaded files
   useEffect(() => {
-    const loadTranslations = () => {
+    const loadTranslations = async () => {
       try {
         // List of translations we have downloaded (will be expanded as more are added)
         const availableTranslations = ['KJV', 'ESV', 'NIV', 'WEB', 'NASB', 'NKJV', 'NLT', 'ASV']
@@ -152,57 +121,72 @@ export function BibleVersionProvider({ children }: { children: React.ReactNode }
         })
         
         setAvailableVersions(versionObjects)
-        setIsLoading(false)
-      } catch (err) {
-        console.error('Error in translation loading:', err)
-        setAvailableVersions([fallbackVersion])
-        setIsLoading(false)
-      }
-    }
-    
-    loadTranslations()
-  }, [])
-  
-  // Load saved version preference once we have available versions
-  useEffect(() => {
-    if (availableVersions.length > 0 && !isLoaded) {
-      try {
-        const savedVersionId = localStorage.getItem('openbible-selected-version')
-        if (savedVersionId) {
-          const savedVersion = availableVersions.find(v => v.id === savedVersionId)
-          if (savedVersion) {
+        
+        // Load saved version preference from database
+        try {
+          // First try to migrate from localStorage
+          const localVersion = localStorage?.getItem('openbible-selected-version')
+          if (localVersion) {
+            await userPreferencesService.setPreference('bibleVersion', localVersion)
+            localStorage.removeItem('openbible-selected-version')
+            console.log('Migrated Bible version from localStorage to database')
+          }
+
+          // Load from database
+          const savedVersionId = await userPreferencesService.getPreference<string>('bibleVersion', 'kjv')
+          const savedVersion = versionObjects.find(v => v.id === savedVersionId) || fallbackVersion
+          setSelectedVersionState(savedVersion)
+        } catch (error) {
+          console.error('Error loading Bible version preference:', error)
+          // Fallback to localStorage
+          const localVersion = localStorage?.getItem('openbible-selected-version')
+          if (localVersion) {
+            const savedVersion = versionObjects.find(v => v.id === localVersion) || fallbackVersion
             setSelectedVersionState(savedVersion)
           }
         }
-      } catch (err) {
-        console.error('Error loading saved version preference:', err)
+        
+      } catch (error) {
+        console.error('Error loading Bible translations:', error)
+        // Set fallback version if loading fails
+        setAvailableVersions([fallbackVersion])
+        setSelectedVersionState(fallbackVersion)
       } finally {
         setIsLoaded(true)
+        setIsLoading(false)
       }
-    } else if (availableVersions.length > 0 && !isLoaded) {
-      setIsLoaded(true)
     }
-  }, [availableVersions, isLoaded])
 
-  // Save version preference when it changes (only after initial load)
-  const setSelectedVersion = (version: BibleVersion) => {
+    loadTranslations()
+  }, [])
+
+  const setSelectedVersion = async (version: BibleVersion) => {
     setSelectedVersionState(version)
     if (isLoaded) {
       try {
-        localStorage.setItem('openbible-selected-version', version.id)
+        await userPreferencesService.setPreference('bibleVersion', version.id)
+        console.log('Bible version saved to database successfully')
       } catch (error) {
         console.error('Failed to save version preference:', error)
+        // Fallback to localStorage
+        try {
+          localStorage.setItem('openbible-selected-version', version.id)
+        } catch (localError) {
+          console.error('Failed to save to localStorage:', localError)
+        }
       }
     }
   }
 
+  const value: BibleVersionContextType = {
+    selectedVersion,
+    availableVersions,
+    setSelectedVersion,
+    isLoading
+  }
+
   return (
-    <BibleVersionContext.Provider value={{ 
-      selectedVersion, 
-      availableVersions, 
-      setSelectedVersion,
-      isLoading 
-    }}>
+    <BibleVersionContext.Provider value={value}>
       {children}
     </BibleVersionContext.Provider>
   )

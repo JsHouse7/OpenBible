@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import { userPreferencesService } from '@/lib/userPreferencesService'
 
 type AnimationPreferences = {
   speed: string
@@ -27,6 +28,8 @@ type AnimationContextType = {
 const AnimationContext = createContext<AnimationContextType | undefined>(undefined)
 
 const defaultPreferences: AnimationPreferences = {
+  speed: 'normal',
+  enabled: true,
   enableAnimations: true,
   animationSpeed: 'normal',
   reducedMotion: false,
@@ -35,25 +38,47 @@ const defaultPreferences: AnimationPreferences = {
   buttonHovers: true,
   modalAnimations: true,
   loadingAnimations: true,
-  scrollAnimations: true,
-  speed: '',
-  enabled: undefined
+  scrollAnimations: true
 }
 
 export function AnimationProvider({ children }: { children: React.ReactNode }) {
   const [preferences, setPreferences] = useState<AnimationPreferences>(defaultPreferences)
+  const [isLoaded, setIsLoaded] = useState(false)
 
-  // Load preferences from localStorage on mount
+  // Load preferences from database on mount
   useEffect(() => {
-    const stored = localStorage.getItem('animation-preferences')
-    if (stored) {
+    const loadPreferences = async () => {
       try {
-        const parsed = JSON.parse(stored)
-        setPreferences(prev => ({ ...prev, ...parsed }))
+        // First try to migrate from localStorage
+        const localPrefs = localStorage?.getItem('animation-preferences')
+        if (localPrefs) {
+          const parsed = JSON.parse(localPrefs)
+          await userPreferencesService.setPreference('animationPreferences', parsed)
+          localStorage.removeItem('animation-preferences')
+          console.log('Migrated animation preferences from localStorage to database')
+        }
+
+        // Load from database
+        const savedPrefs = await userPreferencesService.getPreference<AnimationPreferences>('animationPreferences', defaultPreferences)
+        setPreferences(savedPrefs)
       } catch (error) {
-        console.error('Failed to parse animation preferences:', error)
+        console.error('Error loading animation preferences:', error)
+        // Fallback to localStorage
+        const localPrefs = localStorage?.getItem('animation-preferences')
+        if (localPrefs) {
+          try {
+            const parsed = JSON.parse(localPrefs)
+            setPreferences(prev => ({ ...prev, ...parsed }))
+          } catch (parseError) {
+            console.error('Failed to parse animation preferences:', parseError)
+          }
+        }
+      } finally {
+        setIsLoaded(true)
       }
     }
+
+    loadPreferences()
 
     // Check for system reduced motion preference
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -69,10 +94,26 @@ export function AnimationProvider({ children }: { children: React.ReactNode }) {
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
 
-  // Save preferences to localStorage when they change
+  // Save preferences when they change (only after initial load)
   useEffect(() => {
-    localStorage.setItem('animation-preferences', JSON.stringify(preferences))
-  }, [preferences])
+    if (isLoaded) {
+      const savePreferences = async () => {
+        try {
+          await userPreferencesService.setPreference('animationPreferences', preferences)
+          console.log('Animation preferences saved to database successfully')
+        } catch (error) {
+          console.error('Failed to save animation preferences:', error)
+          // Fallback to localStorage
+          try {
+            localStorage.setItem('animation-preferences', JSON.stringify(preferences))
+          } catch (localError) {
+            console.error('Failed to save to localStorage:', localError)
+          }
+        }
+      }
+      savePreferences()
+    }
+  }, [preferences, isLoaded])
 
   const updatePreferences = (newPreferences: Partial<AnimationPreferences>) => {
     setPreferences(prev => ({ ...prev, ...newPreferences }))
@@ -88,20 +129,13 @@ export function AnimationProvider({ children }: { children: React.ReactNode }) {
       return ''
     }
 
-    const speeds = {
-      slow: 'transition-all duration-500 ease-in-out',
-      normal: 'transition-all duration-300 ease-in-out', 
-      fast: 'transition-all duration-150 ease-in-out'
+    const baseClasses = {
+      default: 'transition-all duration-300 ease-in-out',
+      fast: 'transition-all duration-150 ease-in-out',
+      slow: 'transition-all duration-500 ease-in-out'
     }
 
-    switch (type) {
-      case 'fast':
-        return speeds.fast
-      case 'slow':
-        return speeds.slow
-      default:
-        return speeds[preferences.animationSpeed]
-    }
+    return baseClasses[type]
   }
 
   const isAnimationEnabled = (animationType: 'page' | 'verse' | 'button' | 'modal' | 'loading' | 'scroll') => {
@@ -123,7 +157,7 @@ export function AnimationProvider({ children }: { children: React.ReactNode }) {
       case 'scroll':
         return preferences.scrollAnimations
       default:
-        return false
+        return true
     }
   }
 
@@ -141,8 +175,16 @@ export function AnimationProvider({ children }: { children: React.ReactNode }) {
     return baseDurations[type][preferences.animationSpeed]
   }
 
+  const value: AnimationContextType = {
+    preferences,
+    updatePreferences,
+    getTransitionClass,
+    getDuration,
+    isAnimationEnabled
+  }
+
   return (
-    <AnimationContext.Provider value={{ preferences, updatePreferences, getTransitionClass, getDuration, isAnimationEnabled }}>
+    <AnimationContext.Provider value={value}>
       {children}
     </AnimationContext.Provider>
   )
@@ -154,4 +196,4 @@ export function useAnimations() {
     throw new Error('useAnimations must be used within an AnimationProvider')
   }
   return context
-} 
+}

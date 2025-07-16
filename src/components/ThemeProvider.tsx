@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import { userPreferencesService } from '@/lib/userPreferencesService'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -29,15 +30,40 @@ export function ThemeProvider({
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(defaultTheme)
+  const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
-    const storedTheme = localStorage?.getItem(storageKey) as Theme
-    if (storedTheme) {
-      setTheme(storedTheme)
+    const loadTheme = async () => {
+      try {
+        // First try to migrate from localStorage
+        const localTheme = localStorage?.getItem(storageKey) as Theme
+        if (localTheme) {
+          await userPreferencesService.setPreference('theme', localTheme)
+          localStorage.removeItem(storageKey)
+          console.log('Migrated theme from localStorage to database')
+        }
+
+        // Load theme from database
+        const savedTheme = await userPreferencesService.getPreference<Theme>('theme', defaultTheme)
+        setTheme(savedTheme)
+      } catch (error) {
+        console.error('Error loading theme:', error)
+        // Fallback to localStorage
+        const localTheme = localStorage?.getItem(storageKey) as Theme
+        if (localTheme) {
+          setTheme(localTheme)
+        }
+      } finally {
+        setIsLoaded(true)
+      }
     }
-  }, [storageKey])
+
+    loadTheme()
+  }, [storageKey, defaultTheme])
 
   useEffect(() => {
+    if (!isLoaded) return
+
     const root = window.document.documentElement
 
     root.classList.remove('light', 'dark')
@@ -53,13 +79,20 @@ export function ThemeProvider({
     }
 
     root.classList.add(theme)
-  }, [theme])
+  }, [theme, isLoaded])
 
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      localStorage?.setItem(storageKey, theme)
+    setTheme: async (theme: Theme) => {
       setTheme(theme)
+      try {
+        await userPreferencesService.setPreference('theme', theme)
+        console.log('Theme saved to database successfully')
+      } catch (error) {
+        console.error('Error saving theme:', error)
+        // Fallback to localStorage
+        localStorage?.setItem(storageKey, theme)
+      }
     },
   }
 
@@ -77,4 +110,4 @@ export const useTheme = () => {
     throw new Error('useTheme must be used within a ThemeProvider')
 
   return context
-} 
+}

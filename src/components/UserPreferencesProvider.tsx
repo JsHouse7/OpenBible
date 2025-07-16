@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { userPreferencesService, UserPreferences as ServiceUserPreferences } from '@/lib/userPreferencesService'
 
 interface UserPreferences {
   // Existing preferences
@@ -18,22 +19,49 @@ interface UserPreferences {
   readingMode: string
   
   // Bible settings
-  verseNumbers: boolean
-  highlightEnabled: boolean
-  autoSave: boolean
-  audioEnabled: boolean
+  bibleVersion: string
+  verseNumbersVisible: boolean
+  crossReferencesVisible: boolean
+  footnoteVisible: boolean
   
-  // Notification settings
-  notifications: boolean
-  dailyReadingReminders: boolean
-  weeklyProgressUpdates: boolean
-  newLiteratureReleases: boolean
-  achievementNotifications: boolean
+  // Reading settings
+  autoScroll: boolean
+  highlightEnabled: boolean
+  bookmarksVisible: boolean
+  
+  // Study settings
+  commentaryVisible: boolean
+  concordanceVisible: boolean
+  dictionaryVisible: boolean
   
   // Privacy settings
-  analyticsCollection: boolean
-  crashReporting: boolean
-  publicReadingStats: boolean
+  shareReadingProgress: boolean
+  allowDataCollection: boolean
+}
+
+const defaultPreferences: UserPreferences = {
+  emailNotifications: true,
+  publicProfile: false,
+  showReadingStats: true,
+  dailyReminders: true,
+  analyticsVisible: true,
+  homePage: 'dashboard',
+  fontSize: 16,
+  lineHeight: 1.6,
+  fontFamily: 'Inter',
+  readingMode: 'comfortable',
+  bibleVersion: 'ESV',
+  verseNumbersVisible: true,
+  crossReferencesVisible: false,
+  footnoteVisible: false,
+  autoScroll: false,
+  highlightEnabled: true,
+  bookmarksVisible: true,
+  commentaryVisible: false,
+  concordanceVisible: false,
+  dictionaryVisible: false,
+  shareReadingProgress: true,
+  allowDataCollection: true,
 }
 
 interface UserPreferencesContextType {
@@ -43,40 +71,7 @@ interface UserPreferencesContextType {
   isAnalyticsVisible: () => boolean
   getHomePage: () => string
   saveStatus: 'idle' | 'saving' | 'saved' | 'error'
-}
-
-const defaultPreferences: UserPreferences = {
-  // Existing preferences
-  emailNotifications: true,
-  publicProfile: false,
-  showReadingStats: true,
-  dailyReminders: true,
-  analyticsVisible: false,
-  homePage: 'dashboard',
-  
-  // Appearance settings
-  fontSize: 16,
-  lineHeight: 1.6,
-  fontFamily: 'Georgia',
-  readingMode: 'standard',
-  
-  // Bible settings
-  verseNumbers: true,
-  highlightEnabled: true,
-  autoSave: true,
-  audioEnabled: false,
-  
-  // Notification settings
-  notifications: true,
-  dailyReadingReminders: true,
-  weeklyProgressUpdates: true,
-  newLiteratureReleases: false,
-  achievementNotifications: true,
-  
-  // Privacy settings
-  analyticsCollection: true,
-  crashReporting: true,
-  publicReadingStats: false
+  isLoaded: boolean
 }
 
 const UserPreferencesContext = createContext<UserPreferencesContextType | undefined>(undefined)
@@ -86,64 +81,91 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-  // Load preferences from localStorage only on client side
+  // Load preferences from database on mount
   useEffect(() => {
-    try {
-      const savedPreferences = localStorage.getItem('userPreferences')
-      if (savedPreferences) {
-        const parsed = JSON.parse(savedPreferences)
-        setPreferences({ ...defaultPreferences, ...parsed })
+    const loadPreferences = async () => {
+      try {
+        // First, try to migrate any existing localStorage data
+        await userPreferencesService.migrateFromLocalStorage()
+        
+        // Then load preferences from database
+        const dbPreferences = await userPreferencesService.getPreferences()
+        
+        // Merge with defaults to ensure all properties exist
+        const mergedPreferences = { ...defaultPreferences, ...dbPreferences }
+        setPreferences(mergedPreferences)
+      } catch (error) {
+        console.error('Failed to load preferences:', error)
+        setSaveStatus('error')
+      } finally {
+        setIsLoaded(true)
       }
-    } catch (error) {
-      console.error('Failed to parse saved preferences:', error)
-    } finally {
-      setIsLoaded(true)
     }
+
+    loadPreferences()
   }, [])
 
-  // Save preferences to localStorage whenever they change (only after initial load)
+  // Save preferences to database whenever they change (only after initial load)
   useEffect(() => {
-    if (isLoaded) {
+    if (!isLoaded) return
+
+    const savePreferences = async () => {
       try {
-        localStorage.setItem('userPreferences', JSON.stringify(preferences))
+        setSaveStatus('saving')
+        await userPreferencesService.savePreferences(preferences)
+        setSaveStatus('saved')
+        
+        // Reset to idle after showing saved status
+        setTimeout(() => setSaveStatus('idle'), 2000)
       } catch (error) {
         console.error('Failed to save preferences:', error)
+        setSaveStatus('error')
       }
     }
+
+    savePreferences()
   }, [preferences, isLoaded])
 
-  const updatePreferences = (newPreferences: Partial<UserPreferences>) => {
+  const updatePreferences = async (newPreferences: Partial<UserPreferences>) => {
     setSaveStatus('saving')
     setPreferences(prev => ({ ...prev, ...newPreferences }))
     
-    // Show saved status briefly
-    setTimeout(() => {
+    try {
+      // Also update in database immediately for better UX
+      await userPreferencesService.updatePreferences(newPreferences)
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
-    }, 300)
+    } catch (error) {
+      console.error('Failed to update preferences:', error)
+      setSaveStatus('error')
+    }
   }
-  
-  const resetPreferences = () => {
+
+  const resetPreferences = async () => {
     setSaveStatus('saving')
     setPreferences(defaultPreferences)
     
-    setTimeout(() => {
+    try {
+      await userPreferencesService.savePreferences(defaultPreferences)
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
-    }, 300)
+    } catch (error) {
+      console.error('Failed to reset preferences:', error)
+      setSaveStatus('error')
+    }
   }
 
   const isAnalyticsVisible = () => preferences.analyticsVisible
-
   const getHomePage = () => preferences.homePage
 
-  const value = {
+  const value: UserPreferencesContextType = {
     preferences,
     updatePreferences,
     resetPreferences,
     isAnalyticsVisible,
     getHomePage,
-    saveStatus
+    saveStatus,
+    isLoaded,
   }
 
   return (
