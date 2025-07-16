@@ -78,6 +78,18 @@ CREATE TABLE user_highlights (
   UNIQUE(user_id, book, chapter, verse)
 );
 
+-- User preferences table
+CREATE TABLE user_preferences (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  preferences JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  
+  -- Unique constraint to ensure one preferences record per user
+  UNIQUE(user_id)
+);
+
 -- Authors table for future Christian literature feature
 CREATE TABLE authors (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -110,6 +122,7 @@ ALTER TABLE user_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_bookmarks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reading_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_highlights ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
 -- Users can only see and modify their own data
@@ -157,6 +170,19 @@ CREATE POLICY "Users can insert their own highlights" ON user_highlights
 CREATE POLICY "Users can delete their own highlights" ON user_highlights
   FOR DELETE USING (auth.uid() = user_id);
 
+-- User preferences policies
+CREATE POLICY "Users can view their own preferences" ON user_preferences
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own preferences" ON user_preferences
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own preferences" ON user_preferences
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own preferences" ON user_preferences
+  FOR DELETE USING (auth.uid() = user_id);
+
 -- Bible verses are public (no RLS needed)
 -- Authors and works are public (no RLS needed)
 
@@ -172,6 +198,11 @@ $$ language 'plpgsql';
 -- Add trigger to user_notes table
 CREATE TRIGGER update_user_notes_updated_at 
   BEFORE UPDATE ON user_notes 
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Add trigger to user_preferences table
+CREATE TRIGGER update_user_preferences_updated_at 
+  BEFORE UPDATE ON user_preferences 
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert sample Bible data (John 3)
@@ -210,4 +241,4 @@ INSERT INTO works (author_id, title, slug, description, content_type, year_publi
 ((SELECT id FROM authors WHERE slug = 'spurgeon'), 'Morning and Evening', 'morning-evening', 'Daily devotional readings for morning and evening', 'devotional', 1869),
 ((SELECT id FROM authors WHERE slug = 'calvin'), 'Institutes of the Christian Religion', 'institutes', 'Foundational work of Protestant systematic theology', 'theology', 1559),
 ((SELECT id FROM authors WHERE slug = 'augustine'), 'Confessions', 'confessions', 'Autobiographical work outlining Augustine''s sinful youth and conversion', 'autobiography', 397),
-((SELECT id FROM authors WHERE slug = 'luther'), 'Commentary on Galatians', 'galatians-commentary', 'Martin Luther''s commentary on Paul''s letter to the Galatians', 'commentary', 1535); 
+((SELECT id FROM authors WHERE slug = 'luther'), 'Commentary on Galatians', 'galatians-commentary', 'Martin Luther''s commentary on Paul''s letter to the Galatians', 'commentary', 1535);
