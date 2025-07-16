@@ -205,24 +205,47 @@ export class LiteratureService {
    */
   private static async saveFile(filename: string, content: string): Promise<void> {
     try {
+      console.log(`Attempting to save file: ${filename}`);
+      console.log(`Content length: ${content.length} characters`);
+      
+      const requestBody = { filename, content };
+      console.log('Request body prepared:', { filename, contentLength: content.length });
+      
       const response = await fetch('/api/literature/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ filename, content }),
+        body: JSON.stringify(requestBody),
       })
 
+      console.log(`Response status: ${response.status}`);
+      console.log(`Response ok: ${response.ok}`);
+      
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+        const responseText = await response.text();
+        console.error('Error response text:', responseText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch {
+          errorData = { error: responseText };
+        }
+        
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const result = await response.json()
-      console.log(`File ${filename} saved successfully:`, result.message)
+      const result = await response.json();
+      console.log(`File ${filename} saved successfully:`, result.message);
     } catch (error) {
-      console.error(`Error saving file ${filename}:`, error)
-      throw new Error(`Failed to save file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error(`Error saving file ${filename}:`, error);
+      console.error('Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw new Error(`Failed to save file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
