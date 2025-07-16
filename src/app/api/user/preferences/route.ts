@@ -1,14 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+
+async function getAuthenticatedUser(request: NextRequest) {
+  const authHeader = request.headers.get('authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null
+  }
+
+  const token = authHeader.substring(7)
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token)
+    return error ? null : user
+  } catch {
+    return null
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const supabaseClient = createRouteHandlerClient({ cookies })
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+    const user = await getAuthenticatedUser(request)
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -46,10 +58,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabaseClient = createRouteHandlerClient({ cookies })
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+    const user = await getAuthenticatedUser(request)
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -98,10 +109,9 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const supabaseClient = createRouteHandlerClient({ cookies })
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+    const user = await getAuthenticatedUser(request)
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

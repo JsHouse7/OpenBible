@@ -24,6 +24,23 @@ class UserPreferencesService {
   private cache: UserPreferences | null = null
   private isLoading = false
 
+  private async getAuthHeaders(): Promise<HeadersInit> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+    } catch (error) {
+      console.error('Error getting session for auth headers:', error)
+    }
+
+    return headers
+  }
+
   async getPreferences(): Promise<UserPreferences> {
     if (this.cache) {
       return this.cache
@@ -40,11 +57,10 @@ class UserPreferencesService {
     this.isLoading = true
 
     try {
+      const headers = await this.getAuthHeaders()
       const response = await fetch('/api/user/preferences', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       })
 
       if (!response.ok) {
@@ -70,11 +86,10 @@ class UserPreferencesService {
 
   async savePreferences(preferences: UserPreferences): Promise<void> {
     try {
+      const headers = await this.getAuthHeaders()
       const response = await fetch('/api/user/preferences', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ preferences }),
       })
 
@@ -98,11 +113,10 @@ class UserPreferencesService {
 
   async updatePreferences(partialPreferences: Partial<UserPreferences>): Promise<void> {
     try {
+      const headers = await this.getAuthHeaders()
       const response = await fetch('/api/user/preferences', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ preferences: partialPreferences }),
       })
 
