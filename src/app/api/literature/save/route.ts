@@ -1,37 +1,96 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { existsSync } from 'fs'
+import { supabase } from '@/lib/supabase'
+import { LiteratureWork } from '@/lib/literatureParser'
 
 export async function POST(request: NextRequest) {
   try {
-    const { filename, content } = await request.json()
+    const { work } = await request.json()
     
-    if (!filename || !content) {
+    if (!work) {
       return NextResponse.json(
-        { error: 'Filename and content are required' },
+        { error: 'Literature work data is required' },
         { status: 400 }
       )
     }
 
-    // Ensure the literature directory exists
-    const literatureDir = join(process.cwd(), 'public', 'literature')
-    if (!existsSync(literatureDir)) {
-      await mkdir(literatureDir, { recursive: true })
+    const literatureWork: LiteratureWork = work
+
+    // First, check if author exists or create new one
+    let authorId: string
+    const { data: existingAuthor } = await supabase
+      .from('authors')
+      .select('id')
+      .eq('name', literatureWork.author)
+      .single()
+
+    if (existingAuthor) {
+      authorId = existingAuthor.id
+    } else {
+      // Create new author
+      const authorSlug = literatureWork.author.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      const { data: newAuthor, error: authorError } = await supabase
+        .from('authors')
+        .insert({
+          name: literatureWork.author,
+          slug: authorSlug,
+          bio: null,
+          birth_year: null,
+          death_year: null,
+          traditions: [],
+          era: null,
+          image_url: null
+        })
+        .select('id')
+        .single()
+
+      if (authorError || !newAuthor) {
+        console.error('Error creating author:', authorError)
+        return NextResponse.json(
+          { error: 'Failed to create author' },
+          { status: 500 }
+        )
+      }
+      authorId = newAuthor.id
     }
 
-    // Write the file
-    const filePath = join(literatureDir, filename)
-    await writeFile(filePath, content, 'utf8')
+    // Create or update the work
+    const workSlug = literatureWork.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    const { data: savedWork, error: workError } = await supabase
+      .from('works')
+      .upsert({
+        id: literatureWork.id,
+        author_id: authorId,
+        title: literatureWork.title,
+        slug: workSlug,
+        description: literatureWork.description || '',
+        content_type: 'book',
+        year_published: literatureWork.year || null,
+        is_available: true,
+        content: JSON.stringify(literatureWork)
+      })
+      .select()
+      .single()
+
+    if (workError) {
+      console.error('Error saving work:', workError)
+      return NextResponse.json(
+        { error: 'Failed to save literature work' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json(
-      { message: 'File saved successfully', filename },
+      { 
+        message: 'Literature work saved successfully', 
+        work: savedWork,
+        author_id: authorId
+      },
       { status: 200 }
     )
   } catch (error) {
-    console.error('Error saving file:', error)
+    console.error('Error saving literature work:', error)
     return NextResponse.json(
-      { error: 'Failed to save file' },
+      { error: 'Failed to save literature work' },
       { status: 500 }
     )
   }

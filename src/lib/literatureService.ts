@@ -27,20 +27,40 @@ export class LiteratureService {
   private static readonly INDEX_FILE = 'index.json'
 
   /**
-   * Save a literature work to the public directory
+   * Save a literature work to the Supabase database
    */
   static async saveLiteratureWork(work: LiteratureWork): Promise<void> {
     try {
-      // Create filename from work ID
-      const filename = `${work.id}.json`
+      console.log(`Attempting to save literature work: ${work.title}`);
       
-      // Save the work file
-      await this.saveFile(filename, JSON.stringify(work, null, 2))
+      const response = await fetch('/api/literature/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ work }),
+      })
+
+      console.log(`Response status: ${response.status}`);
       
-      // Update the index
-      await this.updateIndex(work, filename)
+      if (!response.ok) {
+        const responseText = await response.text();
+        console.error('Error response text:', responseText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch {
+          errorData = { error: responseText };
+        }
+        
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
       
-      console.log(`Literature work "${work.title}" saved successfully`)
+      const result = await response.json();
+      console.log('Literature work saved successfully:', result);
+      
+      console.log(`Literature work "${work.title}" saved successfully to database`)
     } catch (error) {
       console.error('Error saving literature work:', error)
       throw new Error(`Failed to save literature work: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -48,12 +68,11 @@ export class LiteratureService {
   }
 
   /**
-   * Load a literature work by ID
+   * Load a literature work by ID from Supabase database
    */
   static async loadLiteratureWork(id: string): Promise<LiteratureWork | null> {
     try {
-      const filename = `${id}.json`
-      const response = await fetch(`${this.LITERATURE_PATH}${filename}`)
+      const response = await fetch(`/api/literature/load?id=${encodeURIComponent(id)}`)
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -62,8 +81,8 @@ export class LiteratureService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
-      const work: LiteratureWork = await response.json()
-      return work
+      const result = await response.json()
+      return result.work as LiteratureWork
     } catch (error) {
       console.error(`Error loading literature work ${id}:`, error)
       return null
@@ -71,40 +90,46 @@ export class LiteratureService {
   }
 
   /**
-   * Get a literature work by ID (alias for loadLiteratureWork)
+   * Get a literature work with fallback to loading if not cached
    */
   static async getLiteratureWork(id: string): Promise<LiteratureWork | null> {
     return this.loadLiteratureWork(id)
   }
 
   /**
-   * Get the literature index (list of all works)
+   * Load the literature index from Supabase database
    */
-  static async getLiteratureIndex(): Promise<LiteratureIndex> {
+  static async loadLiteratureIndex(): Promise<LiteratureIndex> {
     try {
-      const response = await fetch(`${this.LITERATURE_PATH}${this.INDEX_FILE}`)
+      const response = await fetch('/api/literature/list')
       
       if (!response.ok) {
-        if (response.status === 404) {
-          // Return empty index if file doesn't exist
-          return {
-            works: [],
-            lastUpdated: new Date().toISOString()
-          }
+        console.error('Failed to load literature index from database')
+        return {
+          works: [],
+          lastUpdated: new Date().toISOString()
         }
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
-      const index: LiteratureIndex = await response.json()
-      return index
+      const result = await response.json()
+      return {
+        works: result.works,
+        lastUpdated: new Date().toISOString()
+      }
     } catch (error) {
       console.error('Error loading literature index:', error)
-      // Return empty index on error
       return {
         works: [],
         lastUpdated: new Date().toISOString()
       }
     }
+  }
+
+  /**
+   * Get the literature index (alias for loadLiteratureIndex)
+   */
+  static async getLiteratureIndex(): Promise<LiteratureIndex> {
+    return this.loadLiteratureIndex()
   }
 
   /**
