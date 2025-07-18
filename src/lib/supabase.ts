@@ -1,12 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ikbjaqdnsvxmjckihtih.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYmphcWRuc3Z4bWpja2lodGloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyMjcyMzQsImV4cCI6MjA2NjgwMzIzNH0.EUbUcsH7XRUrTR6KR7qYbxKwLzIS3A2aR2g4YOcdFCk'
 
 // Check if Supabase is properly configured
 export const isSupabaseConfigured = () => {
-  return supabaseUrl !== 'https://placeholder.supabase.co' && 
-         supabaseAnonKey !== 'placeholder-key' &&
+  return supabaseUrl !== 'https://ikbjaqdnsvxmjckihtih.supabase.co' && 
+         supabaseAnonKey !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYmphcWRuc3Z4bWpja2lodGloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyMjcyMzQsImV4cCI6MjA2NjgwMzIzNH0.EUbUcsH7XRUrTR6KR7qYbxKwLzIS3A2aR2g4YOcdFCk' &&
          supabaseUrl.includes('supabase.co')
 }
 
