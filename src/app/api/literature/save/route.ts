@@ -55,28 +55,66 @@ export async function POST(request: NextRequest) {
 
     // Create or update the work
     const workSlug = literatureWork.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    const { data: savedWork, error: workError } = await supabase
+    
+    // First check if a work with this title and author already exists
+    const { data: existingWork } = await supabase
       .from('works')
-      .upsert({
-        id: literatureWork.id,
-        author_id: authorId,
-        title: literatureWork.title,
-        slug: workSlug,
-        description: literatureWork.description || '',
-        content_type: 'book',
-        year_published: literatureWork.year || null,
-        is_available: true,
-        content: JSON.stringify(literatureWork)
-      })
-      .select()
+      .select('id')
+      .eq('title', literatureWork.title)
+      .eq('author_id', authorId)
       .single()
 
-    if (workError) {
-      console.error('Error saving work:', workError)
-      return NextResponse.json(
-        { error: 'Failed to save literature work' },
-        { status: 500 }
-      )
+    let savedWork
+    if (existingWork) {
+      // Update existing work
+      const { data, error: workError } = await supabase
+        .from('works')
+        .update({
+          title: literatureWork.title,
+          slug: workSlug,
+          description: literatureWork.description || '',
+          content_type: 'book',
+          year_published: literatureWork.year || null,
+          is_available: true,
+          content: JSON.stringify(literatureWork)
+        })
+        .eq('id', existingWork.id)
+        .select()
+        .single()
+
+      if (workError) {
+        console.error('Error updating work:', workError)
+        return NextResponse.json(
+          { error: 'Failed to update literature work' },
+          { status: 500 }
+        )
+      }
+      savedWork = data
+    } else {
+      // Create new work (let database generate ID)
+      const { data, error: workError } = await supabase
+        .from('works')
+        .insert({
+          author_id: authorId,
+          title: literatureWork.title,
+          slug: workSlug,
+          description: literatureWork.description || '',
+          content_type: 'book',
+          year_published: literatureWork.year || null,
+          is_available: true,
+          content: JSON.stringify(literatureWork)
+        })
+        .select()
+        .single()
+
+      if (workError) {
+        console.error('Error creating work:', workError)
+        return NextResponse.json(
+          { error: 'Failed to create literature work' },
+          { status: 500 }
+        )
+      }
+      savedWork = data
     }
 
     return NextResponse.json(

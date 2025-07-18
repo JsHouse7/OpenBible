@@ -114,10 +114,14 @@ CREATE TABLE works (
   content_type TEXT NOT NULL, -- 'commentary', 'devotional', 'sermon', 'book'
   year_published INTEGER,
   is_available BOOLEAN DEFAULT true,
+  content TEXT, -- JSON content of the work
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Enable Row Level Security
+ALTER TABLE bible_verses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE authors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE works ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_bookmarks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reading_progress ENABLE ROW LEVEL SECURITY;
@@ -126,6 +130,28 @@ ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
 -- Users can only see and modify their own data
+
+-- Public table policies (bible_verses, authors, works)
+CREATE POLICY "Bible verses are publicly readable" ON bible_verses
+  FOR SELECT USING (true);
+
+CREATE POLICY "Authors are publicly readable" ON authors
+  FOR SELECT USING (true);
+
+CREATE POLICY "Authenticated users can insert authors" ON authors
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Authenticated users can update authors" ON authors
+  FOR UPDATE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Works are publicly readable" ON works
+  FOR SELECT USING (true);
+
+CREATE POLICY "Authenticated users can insert works" ON works
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Authenticated users can update works" ON works
+  FOR UPDATE USING (auth.role() = 'authenticated');
 
 -- User notes policies
 CREATE POLICY "Users can view their own notes" ON user_notes
@@ -193,7 +219,7 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ language 'plpgsql' SECURITY DEFINER SET search_path = public;
 
 -- Add trigger to user_notes table
 CREATE TRIGGER update_user_notes_updated_at 
