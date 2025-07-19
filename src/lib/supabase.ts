@@ -5,9 +5,11 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOi
 
 // Check if Supabase is properly configured
 export const isSupabaseConfigured = () => {
-  return supabaseUrl !== 'https://ikbjaqdnsvxmjckihtih.supabase.co' && 
-         supabaseAnonKey !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYmphcWRuc3Z4bWpja2lodGloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyMjcyMzQsImV4cCI6MjA2NjgwMzIzNH0.EUbUcsH7XRUrTR6KR7qYbxKwLzIS3A2aR2g4YOcdFCk' &&
-         supabaseUrl.includes('supabase.co')
+  // Check if we have valid Supabase URL and key
+  return supabaseUrl && 
+         supabaseAnonKey && 
+         supabaseUrl.includes('supabase.co') &&
+         supabaseAnonKey.startsWith('eyJ') // JWT tokens start with 'eyJ'
 }
 
 // Mock query builder for development
