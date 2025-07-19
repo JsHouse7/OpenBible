@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { userPreferencesService, UserPreferences as ServiceUserPreferences } from '@/lib/userPreferencesService'
+import { useAuth } from '@/components/AuthProvider'
 
 interface UserPreferences {
   // Existing preferences
@@ -77,81 +78,86 @@ interface UserPreferencesContextType {
 const UserPreferencesContext = createContext<UserPreferencesContextType | undefined>(undefined)
 
 export function UserPreferencesProvider({ children }: { children: ReactNode }) {
+  const { user, loading: authLoading } = useAuth()
   const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences)
   const [isLoaded, setIsLoaded] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-  // Load preferences from database on mount
+  // Load preferences from database on mount, but only when user is authenticated
   useEffect(() => {
     const loadPreferences = async () => {
-      try {
-        // First, try to migrate any existing localStorage data
-        await userPreferencesService.migrateFromLocalStorage()
-        
-        // Then load preferences from database
-        const dbPreferences = await userPreferencesService.getPreferences()
-        
-        // Merge with defaults to ensure all properties exist
-        const mergedPreferences = { ...defaultPreferences, ...dbPreferences }
-        setPreferences(mergedPreferences)
-      } catch (error) {
-        console.error('Failed to load preferences:', error)
-        setSaveStatus('error')
-      } finally {
+      if (!authLoading) {
+        if (user) {
+          try {
+            await userPreferencesService.migrateFromLocalStorage()
+            const dbPreferences = await userPreferencesService.getPreferences()
+            const mergedPreferences = { ...defaultPreferences, ...dbPreferences }
+            setPreferences(mergedPreferences)
+          } catch (error) {
+            console.error('Failed to load preferences, using defaults:', error)
+            const localPreferences = await userPreferencesService.getPreferences()
+            const mergedPreferences = { ...defaultPreferences, ...localPreferences }
+            setPreferences(mergedPreferences)
+          }
+        }
         setIsLoaded(true)
       }
     }
 
     loadPreferences()
-  }, [])
+  }, [user, authLoading])
 
-  // Save preferences to database whenever they change (only after initial load)
+  // Save preferences to database whenever they change (only after initial load and if user exists)
   useEffect(() => {
-    if (!isLoaded) return
+    if (!isLoaded || !user) return
 
-    const savePreferences = async () => {
-      try {
-        setSaveStatus('saving')
-        await userPreferencesService.savePreferences(preferences)
-        setSaveStatus('saved')
-        
-        // Reset to idle after showing saved status
-        setTimeout(() => setSaveStatus('idle'), 2000)
-      } catch (error) {
-        console.error('Failed to save preferences:', error)
-        setSaveStatus('error')
+    const debounceSave = setTimeout(() => {
+      const savePreferences = async () => {
+        try {
+          setSaveStatus('saving')
+          await userPreferencesService.savePreferences(preferences)
+          setSaveStatus('saved')
+          setTimeout(() => setSaveStatus('idle'), 2000)
+        } catch (error) {
+          console.error('Failed to save preferences:', error)
+          setSaveStatus('error')
+        }
       }
-    }
+      savePreferences()
+    }, 1000)
 
-    savePreferences()
-  }, [preferences, isLoaded])
+    return () => clearTimeout(debounceSave)
+  }, [preferences, isLoaded, user])
 
   const updatePreferences = async (newPreferences: Partial<UserPreferences>) => {
-    setSaveStatus('saving')
     setPreferences(prev => ({ ...prev, ...newPreferences }))
-    
-    try {
-      // Also update in database immediately for better UX
-      await userPreferencesService.updatePreferences(newPreferences)
-      setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('idle'), 2000)
-    } catch (error) {
-      console.error('Failed to update preferences:', error)
-      setSaveStatus('error')
+
+    if (user) {
+      setSaveStatus('saving')
+      try {
+        await userPreferencesService.updatePreferences(newPreferences)
+        setSaveStatus('saved')
+        setTimeout(() => setSaveStatus('idle'), 2000)
+      } catch (error) {
+        console.error('Failed to update preferences:', error)
+        setSaveStatus('error')
+      }
     }
   }
 
   const resetPreferences = async () => {
-    setSaveStatus('saving')
     setPreferences(defaultPreferences)
-    
-    try {
-      await userPreferencesService.savePreferences(defaultPreferences)
-      setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('idle'), 2000)
-    } catch (error) {
-      console.error('Failed to reset preferences:', error)
-      setSaveStatus('error')
+
+    if (user) {
+      setSaveStatus('saving')
+      try {
+        await userPreferencesService.savePreferences(defaultPreferences)
+        setSaveStatus('saved')
+        setTimeout(() => setSaveStatus('idle'), 2000)
+      } catch (error) {
+        console.error('Failed to reset preferences:', error)
+        setSaveStatus('error')
+      }
     }
   }
 

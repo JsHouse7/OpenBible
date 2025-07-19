@@ -3,8 +3,11 @@ import { supabase } from '@/lib/supabase'
 import { LiteratureWork } from '@/lib/literatureParser'
 
 export async function POST(request: NextRequest) {
+  console.log('Received request to /api/literature/save');
   try {
-    const { work } = await request.json()
+    const body = await request.json();
+    console.log('Request body:', body);
+    const { work } = body;
     
     if (!work) {
       return NextResponse.json(
@@ -27,7 +30,13 @@ export async function POST(request: NextRequest) {
       authorId = existingAuthor.id
     } else {
       // Create new author
-      const authorSlug = literatureWork.author.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      if (!literatureWork.author) {
+        return NextResponse.json(
+          { error: 'Author name is required' },
+          { status: 400 }
+        )
+      }
+      const authorSlug = `${literatureWork.author.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now()}`
       const { data: newAuthor, error: authorError } = await supabase
         .from('authors')
         .insert({
@@ -46,7 +55,10 @@ export async function POST(request: NextRequest) {
       if (authorError || !newAuthor) {
         console.error('Error creating author:', authorError)
         return NextResponse.json(
-          { error: 'Failed to create author' },
+          { 
+            error: 'Failed to create author',
+            details: authorError?.message
+          },
           { status: 500 }
         )
       }
@@ -54,9 +66,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Create or update the work
-    const workSlug = literatureWork.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    
-    // First check if a work with this title and author already exists
     const { data: existingWork } = await supabase
       .from('works')
       .select('id')
@@ -70,8 +79,6 @@ export async function POST(request: NextRequest) {
       const { data, error: workError } = await supabase
         .from('works')
         .update({
-          title: literatureWork.title,
-          slug: workSlug,
           description: literatureWork.description || '',
           content_type: 'book',
           year_published: literatureWork.year || null,
@@ -91,7 +98,12 @@ export async function POST(request: NextRequest) {
       }
       savedWork = data
     } else {
-      // Create new work (let database generate ID)
+      // Create new work
+      if (!literatureWork.title) {
+        return NextResponse.json({ error: 'Work title is required' }, { status: 400 });
+      }
+      const workSlug = `${literatureWork.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now()}`
+      
       const { data, error: workError } = await supabase
         .from('works')
         .insert({
@@ -110,7 +122,10 @@ export async function POST(request: NextRequest) {
       if (workError) {
         console.error('Error creating work:', workError)
         return NextResponse.json(
-          { error: 'Failed to create literature work' },
+          { 
+            error: 'Failed to create literature work',
+            details: workError.message 
+          },
           { status: 500 }
         )
       }

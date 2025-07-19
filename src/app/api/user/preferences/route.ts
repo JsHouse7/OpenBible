@@ -8,12 +8,16 @@ async function getAuthenticatedUser(request: NextRequest) {
   }
 
   const token = authHeader.substring(7)
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token)
-    return error ? null : user
-  } catch {
-    return null
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+
+  if (error) {
+    throw new Error(`Authentication error: ${error.message}`)
   }
+  if (!user) {
+    throw new Error('User not found.')
+  }
+
+  return user
 }
 
 export async function GET(request: NextRequest) {

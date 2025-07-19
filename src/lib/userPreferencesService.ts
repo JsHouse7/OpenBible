@@ -29,15 +29,19 @@ class UserPreferencesService {
       'Content-Type': 'application/json',
     }
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      }
-    } catch (error) {
+    const { data: { session }, error } = await supabase.auth.getSession()
+
+    if (error) {
       console.error('Error getting session for auth headers:', error)
+      throw new Error('Could not get user session.')
     }
 
+    if (!session) {
+      // Return headers without Authorization for unauthenticated users
+      return headers
+    }
+
+    headers['Authorization'] = `Bearer ${session.access_token}`
     return headers
   }
 
