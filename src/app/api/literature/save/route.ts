@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { LiteratureWork } from '@/lib/literatureParser'
 
+function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .replace(/\s+/g, '-') // Replace spaces with -
+    .replace(/[^\w\-]+/g, '') // Remove all non-word chars
+    .replace(/\-\-+/g, '-') // Replace multiple - with single -
+    .replace(/^-+/, '') // Trim - from start of text
+    .replace(/-+$/, '') // Trim - from end of text
+}
+
 export async function POST(request: NextRequest) {
   console.log('Received request to /api/literature/save');
   const authHeader = request.headers.get('authorization')
@@ -60,7 +71,7 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-      const authorSlug = `${literatureWork.author.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now()}`
+      const authorSlug = slugify(literatureWork.author)
       const { data: newAuthor, error: authorError } = await supabase
         .from('authors')
         .insert({
@@ -107,6 +118,9 @@ export async function POST(request: NextRequest) {
           content_type: 'book',
           year_published: literatureWork.year || null,
           is_available: true,
+          word_count: literatureWork.wordCount,
+          chapter_count: literatureWork.chapterCount,
+          estimated_reading_time: literatureWork.estimatedReadingTime,
           content: JSON.stringify(literatureWork)
         })
         .eq('id', existingWork.id)
@@ -126,7 +140,7 @@ export async function POST(request: NextRequest) {
       if (!literatureWork.title) {
         return NextResponse.json({ error: 'Work title is required' }, { status: 400 });
       }
-      const workSlug = `${literatureWork.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now()}`
+      const workSlug = slugify(literatureWork.title)
       
       const { data, error: workError } = await supabase
         .from('works')
@@ -138,6 +152,9 @@ export async function POST(request: NextRequest) {
           content_type: 'book',
           year_published: literatureWork.year || null,
           is_available: true,
+          word_count: literatureWork.wordCount,
+          chapter_count: literatureWork.chapterCount,
+          estimated_reading_time: literatureWork.estimatedReadingTime,
           content: JSON.stringify(literatureWork)
         })
         .select()
