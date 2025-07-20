@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
         year_published,
         is_available,
         created_at,
-        updated_at,
         authors (
           name,
           slug,
@@ -49,7 +48,6 @@ export async function GET(request: NextRequest) {
       year_published: number;
       slug: string;
       created_at: string;
-      updated_at: string;
     }) => ({
       id: work.id,
       title: work.title,
@@ -59,8 +57,7 @@ export async function GET(request: NextRequest) {
       filename: `${work.id}.json`, // For compatibility
       slug: work.slug,
       authorSlug: work.authors?.slug || 'unknown',
-      created_at: work.created_at,
-      updated_at: work.updated_at
+      created_at: work.created_at
     }))
 
     return NextResponse.json(

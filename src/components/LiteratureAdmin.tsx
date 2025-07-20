@@ -143,6 +143,7 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
     setUploadStatus({ status: 'uploading', progress: 80, message: 'Saving literature work...' })
 
     try {
+      console.log('Saving work:', JSON.stringify(previewWork, null, 2));
       // Save using LiteratureService
       await LiteratureService.saveLiteratureWork(previewWork)
 

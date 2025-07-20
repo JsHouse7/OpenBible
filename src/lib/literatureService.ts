@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 import { LiteratureWork } from './literatureParser'
 
 // Re-export LiteratureWork for other components
@@ -33,10 +34,13 @@ export class LiteratureService {
     try {
       console.log(`Attempting to save literature work: ${work.title}`);
       
+      const { data: { session } } = await supabase.auth.getSession()
+
       const response = await fetch('/api/literature/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({ work }),
       })
@@ -56,11 +60,16 @@ export class LiteratureService {
         
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
-      
-      const result = await response.json();
-      console.log('Literature work saved successfully:', result);
-      
-      console.log(`Literature work "${work.title}" saved successfully to database`)
+
+      const responseText = await response.text();
+      try {
+        const result = JSON.parse(responseText);
+        console.log('Literature work saved successfully:', result);
+        console.log(`Literature work "${work.title}" saved successfully to database`);
+      } catch (e) {
+        console.error('Failed to parse JSON response:', responseText);
+        throw new Error('Received an invalid response from the server.');
+      }
     } catch (error) {
       console.error('Error saving literature work:', error)
       throw new Error(`Failed to save literature work: ${error instanceof Error ? error.message : 'Unknown error'}`)
