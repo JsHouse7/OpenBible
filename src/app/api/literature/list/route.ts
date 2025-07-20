@@ -57,7 +57,13 @@ export async function GET(request: NextRequest) {
       filename: `${work.id}.json`, // For compatibility
       slug: work.slug,
       authorSlug: work.authors?.slug || 'unknown',
-      created_at: work.created_at
+      created_at: work.created_at,
+      // Add missing fields required by the LiteratureLibrary component
+      difficulty: 'intermediate', // Default difficulty
+      wordCount: 5000, // Default word count
+      chapterCount: 1, // Default chapter count
+      estimatedReadingTime: 25, // Default reading time in minutes
+      dateAdded: work.created_at // Use created_at as dateAdded
     }))
 
     return NextResponse.json(
