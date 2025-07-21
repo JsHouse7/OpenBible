@@ -145,6 +145,11 @@ const LiteratureLibrary = () => {
   }))
 
   console.log('Filtered authors:', filteredAuthors)
+    console.log('Filtered authors detailed:', filteredAuthors.map(author => ({
+      name: author.name,
+      totalWorks: author.totalWorks,
+      works: author.works.map(work => ({ id: work.id, title: work.title }))
+    })))
   const formatReadingTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60

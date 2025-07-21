@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, FileText, Book, Settings, Download, Trash2, Eye, Plus, Check, X, AlertCircle } from 'lucide-react'
+import { Upload, FileText, Book, Settings, Download, Trash2, Eye, Plus, Check, X, AlertCircle, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/input'
@@ -187,6 +187,11 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
 
   const handleDeleteWork = (workId: string) => {
     setExistingWorks(prev => prev.filter(work => work.id !== workId))
+  }
+
+  const handleRefreshLibrary = () => {
+    // Force refresh the library by calling the callback
+    onWorkAdded?.()
   }
 
   const resetUpload = () => {
@@ -422,13 +427,26 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
         <TabsContent value="manage" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Book className="h-5 w-5" />
-                Existing Literature Works
-              </CardTitle>
-              <CardDescription>
-                Manage your uploaded literature collection
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Book className="h-5 w-5" />
+                    Existing Literature Works
+                  </CardTitle>
+                  <CardDescription>
+                    Manage your uploaded literature collection
+                  </CardDescription>
+                </div>
+                <Button 
+                  onClick={handleRefreshLibrary}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh Library
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {existingWorks.length === 0 ? (
