@@ -64,7 +64,11 @@ const LiteratureLibrary = () => {
   const loadLiteratureWorks = async () => {
     try {
       setLoading(true)
+      console.log('Loading literature works...')
       const index = await LiteratureService.getLiteratureIndex()
+      console.log('Received index:', index)
+      console.log('Works array:', index.works)
+      console.log('Number of works:', index.works.length)
       setWorks(index.works)
       setError(null)
     } catch (err) {
@@ -128,6 +132,11 @@ const LiteratureLibrary = () => {
     return matchesSearch && matchesCategory
   })
 
+  console.log('All works:', works)
+  console.log('Search term:', searchTerm)
+  console.log('Selected category:', selectedCategory)
+  console.log('Filtered works:', filteredWorks)
+
   const filteredAuthors = groupedAuthors.filter((author: Author) => 
     author.works.some((work: LiteratureWorkSummary) => filteredWorks.includes(work))
   ).map((author: Author) => ({
@@ -135,6 +144,7 @@ const LiteratureLibrary = () => {
     works: author.works.filter((work: LiteratureWorkSummary) => filteredWorks.includes(work))
   }))
 
+  console.log('Filtered authors:', filteredAuthors)
   const formatReadingTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
