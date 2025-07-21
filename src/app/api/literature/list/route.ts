@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get all works from database with author information
+    console.log('API: Starting to fetch works from database...')
     const { data: works, error } = await supabase
       .from('works')
       .select(`
@@ -11,10 +11,13 @@ export async function GET(request: NextRequest) {
         title,
         slug,
         description,
+        content_type,
         year_published,
         is_available,
+        content,
         created_at,
         authors (
+          id,
           name,
           slug,
           bio,
@@ -27,6 +30,11 @@ export async function GET(request: NextRequest) {
       `)
       .eq('is_available', true)
       .order('title')
+    
+    console.log('API: Database query completed')
+    console.log('API: Error:', error)
+    console.log('API: Number of works returned:', works?.length || 0)
+    console.log('API: Works data:', works?.map(w => ({ id: w.id, title: w.title, is_available: w.is_available })))
 
     if (error) {
       console.error('Error loading works:', error)

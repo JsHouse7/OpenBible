@@ -190,8 +190,11 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
   }
 
   const handleRefreshLibrary = () => {
+    console.log('Refresh Library button clicked!')
+    console.log('onWorkAdded callback:', onWorkAdded)
     // Force refresh the library by calling the callback
     onWorkAdded?.()
+    console.log('onWorkAdded callback called')
   }
 
   const resetUpload = () => {

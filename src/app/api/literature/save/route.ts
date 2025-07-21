@@ -118,9 +118,6 @@ export async function POST(request: NextRequest) {
           content_type: 'book',
           year_published: literatureWork.year || null,
           is_available: true,
-          word_count: literatureWork.wordCount,
-          chapter_count: literatureWork.chapterCount,
-          estimated_reading_time: literatureWork.estimatedReadingTime,
           content: JSON.stringify(literatureWork)
         })
         .eq('id', existingWork.id)
@@ -152,9 +149,6 @@ export async function POST(request: NextRequest) {
           content_type: 'book',
           year_published: literatureWork.year || null,
           is_available: true,
-          word_count: literatureWork.wordCount,
-          chapter_count: literatureWork.chapterCount,
-          estimated_reading_time: literatureWork.estimatedReadingTime,
           content: JSON.stringify(literatureWork)
         })
         .select()

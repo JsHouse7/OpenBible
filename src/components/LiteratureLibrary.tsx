@@ -89,6 +89,7 @@ const LiteratureLibrary = () => {
   }
 
   const handleWorkAdded = () => {
+    console.log('handleWorkAdded called - refreshing library...')
     loadLiteratureWorks()
     loadStats()
   }
