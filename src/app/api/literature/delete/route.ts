@@ -29,9 +29,7 @@ export async function POST(request: Request) {
     const { data: orphanAuthors } = await supabase
       .from('authors')
       .select('id')
-      .not('id', 'in', '(
-        SELECT author_id FROM work_authors
-      )');
+      .not('id', 'in', '(SELECT author_id FROM work_authors)');
 
     if (orphanAuthors?.length) {
       await supabase
