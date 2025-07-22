@@ -31,6 +31,8 @@ interface ExistingWork {
   wordCount: number
   chapters: number
   lastModified: string
+  description: string
+  year: number
 }
 
 interface LiteratureAdminProps {
@@ -64,6 +66,7 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
   const [existingWorks, setExistingWorks] = useState<ExistingWork[]>([])
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewWork, setPreviewWork] = useState<LiteratureWork | null>(null)
+  const [editingWork, setEditingWork] = useState<ExistingWork | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,7 +140,33 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
     }
   }
 
-  const handleSaveWork = async () => {
+  const loadExistingWorks = async () => {
+  try {
+    console.log('Loading existing works...')
+    const index = await LiteratureService.getLiteratureIndex()
+    const works: ExistingWork[] = index.works.map(work => ({
+      id: work.id,
+      title: work.title,
+      author: work.author,
+      difficulty: work.difficulty || 'intermediate',
+      wordCount: work.wordCount || 0,
+      chapters: work.chapterCount || 0,
+      lastModified: work.dateAdded || new Date().toISOString(),
+      description: work.description || '',
+      year: work.year || 0
+    }));
+    setExistingWorks(works);
+    console.log('Loaded', works.length, 'works');
+  } catch (error) {
+    console.error('Error loading works:', error);
+  }
+};
+
+useEffect(() => {
+  loadExistingWorks();
+}, []);
+
+const handleSaveWork = async () => {
     if (!previewWork) return
 
     setUploadStatus({ status: 'uploading', progress: 80, message: 'Saving literature work...' })
@@ -155,7 +184,9 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
         difficulty: previewWork.difficulty,
         wordCount: previewWork.metadata?.wordCount || 0,
         chapters: previewWork.chapters.length,
-        lastModified: new Date().toISOString()
+        lastModified: new Date().toISOString(),
+        description: previewWork.description,
+        year: previewWork.year
       }
       setExistingWorks(prev => [...prev, newWork])
 
@@ -184,18 +215,51 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
       })
     }
   }
-
-  const handleDeleteWork = (workId: string) => {
-    setExistingWorks(prev => prev.filter(work => work.id !== workId))
+const handleEditWork = (work: ExistingWork) => {
+  setEditingWork(work);
+};
+const handleSaveEdit = async () => {
+  if (!editingWork) return;
+  try {
+    console.log('Saving edited work:', editingWork);
+    await LiteratureService.updateLiteratureWork({
+      id: editingWork.id,
+      title: editingWork.title,
+      author: editingWork.author,
+      year: editingWork.year,
+      difficulty: editingWork.difficulty,
+      description: editingWork.description
+    });
+    setExistingWorks(prev => prev.map(w => w.id === editingWork.id ? editingWork : w));
+    setEditingWork(null);
+    loadExistingWorks(); // Refresh list
+  } catch (error) {
+    console.error('Error saving edit:', error);
   }
+};
+const handleCancelEdit = () => {
+  setEditingWork(null);
+};
 
-  const handleRefreshLibrary = () => {
-    console.log('Refresh Library button clicked!')
-    console.log('onWorkAdded callback:', onWorkAdded)
-    // Force refresh the library by calling the callback
-    onWorkAdded?.()
-    console.log('onWorkAdded callback called')
+  const handleDeleteWork = async (workId: string) => {
+  try {
+    console.log('Deleting work:', workId);
+    await LiteratureService.deleteLiteratureWork(workId);
+    setExistingWorks(prev => prev.filter(work => work.id !== workId));
+    loadExistingWorks(); // Refresh list
+  } catch (error) {
+    console.error('Error deleting work:', error);
   }
+};
+const handleRefreshLibrary = () => {
+  console.log('Refresh Library button clicked!');
+  console.log('onWorkAdded callback:', onWorkAdded);
+  onWorkAdded?.();
+  console.log('onWorkAdded callback called');
+  console.log('Reloading existing works in admin...');
+  loadExistingWorks();
+  console.log('Admin list refreshed');
+};
 
   const resetUpload = () => {
     setSelectedFile(null)
@@ -461,25 +525,74 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
               ) : (
                 <div className="space-y-4">
                   {existingWorks.map((work) => (
-                    <div key={work.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <h3 className="font-medium">{work.title}</h3>
-                        <p className="text-sm text-muted-foreground">by {work.author}</p>
-                        <div className="flex gap-4 mt-2">
-                          <Badge variant="outline">{work.difficulty}</Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {work.chapters} chapters • {work.wordCount.toLocaleString()} words
-                          </span>
+                    <div key={work.id} className="p-4 border rounded-lg">
+                      {editingWork?.id === work.id ? (
+                        <div className="space-y-4">
+                          <Input
+                            value={editingWork.title}
+                            onChange={(e) => setEditingWork({ ...editingWork, title: e.target.value })}
+                            placeholder="Title"
+                          />
+                          <Input
+                            value={editingWork.author}
+                            onChange={(e) => setEditingWork({ ...editingWork, author: e.target.value })}
+                            placeholder="Author"
+                          />
+                          <Input
+                            type="number"
+                            value={editingWork.year}
+                            onChange={(e) => setEditingWork({ ...editingWork, year: parseInt(e.target.value) })}
+                            placeholder="Year"
+                          />
+                          <Select
+                            value={editingWork.difficulty}
+                            onValueChange={(value) => setEditingWork({ ...editingWork, difficulty: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="beginner">Beginner</SelectItem>
+                              <SelectItem value="intermediate">Intermediate</SelectItem>
+                              <SelectItem value="advanced">Advanced</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Textarea
+                            value={editingWork.description}
+                            onChange={(e) => setEditingWork({ ...editingWork, description: e.target.value })}
+                            placeholder="Description"
+                          />
+                          <div className="flex gap-2">
+                            <Button onClick={handleSaveEdit}>Save</Button>
+                            <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDeleteWork(work.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-medium">{work.title}</h3>
+                            <p className="text-sm text-muted-foreground">by {work.author} ({work.year})</p>
+                            <p className="text-sm">{work.description}</p>
+                            <div className="flex gap-4 mt-2">
+                              <Badge variant="outline">{work.difficulty}</Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {work.chapters} chapters • {work.wordCount.toLocaleString()} words
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleEditWork(work)}>
+                              Edit
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDeleteWork(work.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

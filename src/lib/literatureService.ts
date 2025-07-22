@@ -146,23 +146,39 @@ export class LiteratureService {
    */
   static async deleteLiteratureWork(id: string): Promise<void> {
     try {
-      // Remove from index
-      const index = await this.getLiteratureIndex()
-      const updatedWorks = index.works.filter(work => work.id !== id)
-      
-      const updatedIndex: LiteratureIndex = {
-        works: updatedWorks,
-        lastUpdated: new Date().toISOString()
+      const response = await fetch('/api/literature/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete work: ${response.statusText}`);
       }
-      
-      await this.saveFile(this.INDEX_FILE, JSON.stringify(updatedIndex, null, 2))
-      
-      // Note: In a real implementation, you'd also delete the actual file
-      // This would require a server-side API endpoint
-      console.log(`Literature work ${id} removed from index`)
+
+      console.log(`Literature work ${id} deleted successfully`);
     } catch (error) {
-      console.error(`Error deleting literature work ${id}:`, error)
-      throw new Error(`Failed to delete literature work: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error(`Error deleting literature work ${id}:`, error);
+      throw new Error(`Failed to delete literature work: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  static async updateLiteratureWork(updatedWork: Partial<LiteratureWork>): Promise<void> {
+    try {
+      const response = await fetch('/api/literature/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ work: updatedWork })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update work: ${response.statusText}`);
+      }
+
+      console.log(`Literature work ${updatedWork.id} updated successfully`);
+    } catch (error) {
+      console.error(`Error updating literature work ${updatedWork.id}:`, error);
+      throw new Error(`Failed to update literature work: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
