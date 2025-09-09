@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+// Create a Supabase client for server-side operations
+const supabaseServer = createClient(supabaseUrl, supabaseServiceKey)
 
 async function getAuthenticatedUser(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -8,16 +14,29 @@ async function getAuthenticatedUser(request: NextRequest) {
   }
 
   const token = authHeader.substring(7)
-  const { data: { user }, error } = await supabase.auth.getUser(token)
+  
+  try {
+    // Create a client with the user's JWT token
+    const supabaseWithAuth = createClient(supabaseUrl, supabaseServiceKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    })
 
-  if (error) {
-    throw new Error(`Authentication error: ${error.message}`)
-  }
-  if (!user) {
-    throw new Error('User not found.')
-  }
+    const { data: { user }, error } = await supabaseWithAuth.auth.getUser()
 
-  return user
+    if (error) {
+      console.error('Authentication error:', error)
+      return null
+    }
+
+    return user
+  } catch (error) {
+    console.error('Error verifying user token:', error)
+    return null
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -32,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user preferences from database
-    const { data: userPrefs, error } = await supabase
+    const { data: userPrefs, error } = await supabaseServer
       .from('user_preferences')
       .select('preferences')
       .eq('user_id', user.id)
@@ -81,7 +100,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upsert user preferences
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
       .from('user_preferences')
       .upsert({
         user_id: user.id,

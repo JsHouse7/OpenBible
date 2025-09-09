@@ -6,12 +6,11 @@ import { Button } from '@/components/ui/Button'
 import { useTheme } from '@/components/ThemeProvider'
 import { useAuth } from '@/components/AuthProvider'
 import { useFonts } from '@/hooks/useFonts'
-import { bibleService, notesService, analyticsService } from '@/lib/database'
+import { notesService, analyticsService } from '@/lib/database'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import SearchBar from '@/components/SearchBar'
 import { 
   Menu,
   Search,
@@ -34,12 +33,8 @@ import {
 } from 'lucide-react'
 
 const EnhancedNavigation = () => {
-  const [searchOpen, setSearchOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<any[]>([])
-  const [isSearching, setIsSearching] = useState(false)
   const [notesCount, setNotesCount] = useState(0)
   const [notificationsCount, setNotificationsCount] = useState(0)
   const { theme, setTheme } = useTheme()
@@ -60,16 +55,6 @@ const EnhancedNavigation = () => {
     { id: 'profile', label: 'My Profile', icon: User, badge: null, href: '/profile' },
   ]
 
-  const quickSearchItems = [
-    { type: 'book', title: 'Genesis', description: 'First book of the Bible' },
-    { type: 'book', title: 'John', description: 'Gospel of John' },
-    { type: 'book', title: 'Psalms', description: 'Book of Psalms' },
-    { type: 'literature', title: 'Mere Christianity', description: 'C.S. Lewis' },
-    { type: 'literature', title: 'Confessions', description: 'Augustine of Hippo' },
-    { type: 'verse', title: 'John 3:16', description: 'For God so loved the world...' },
-    { type: 'verse', title: 'Romans 8:28', description: 'And we know that in all things...' },
-  ]
-
   const getCurrentPage = () => {
     if (pathname === '/') return 'dashboard'
     return pathname.slice(1) // Remove leading slash
@@ -79,15 +64,6 @@ const EnhancedNavigation = () => {
     router.push(href)
     setMobileMenuOpen(false)
     setUserMenuOpen(false)
-  }
-
-  const getItemIcon = (type: string) => {
-    switch (type) {
-      case 'book': return <BookOpen className="h-4 w-4" />
-      case 'literature': return <Library className="h-4 w-4" />
-      case 'verse': return <Star className="h-4 w-4" />
-      default: return <Search className="h-4 w-4" />
-    }
   }
 
   const toggleTheme = () => {
@@ -142,42 +118,6 @@ const EnhancedNavigation = () => {
 
     fetchUserCounts()
   }, [user])
-
-  // Search functionality
-  useEffect(() => {
-    const searchVerses = async () => {
-      if (!searchQuery.trim() || searchQuery.length < 3) {
-        setSearchResults([])
-        return
-      }
-
-      setIsSearching(true)
-      try {
-        const { data, error } = await bibleService.searchVerses(searchQuery, 'KJV', 10)
-        if (!error && data) {
-          setSearchResults(data)
-        } else {
-          setSearchResults([])
-        }
-      } catch (error) {
-        console.error('Search error:', error)
-        setSearchResults([])
-      } finally {
-        setIsSearching(false)
-      }
-    }
-
-    const debounceTimer = setTimeout(searchVerses, 300)
-    return () => clearTimeout(debounceTimer)
-  }, [searchQuery])
-
-  const handleSearchSelect = (result: any) => {
-    setSearchOpen(false)
-    setSearchQuery('')
-    setSearchResults([])
-    // Navigate to the verse
-    router.push(`/reader?book=${result.book}&chapter=${result.chapter}&verse=${result.verse}`)
-  }
 
   return (
     <>
@@ -262,15 +202,14 @@ const EnhancedNavigation = () => {
 
             {/* Right side - Search and Notifications */}
             <div className="flex items-center gap-2">
-              {/* Mobile Search Button */}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-9 w-9"
-                onClick={() => setSearchOpen(true)}
-              >
-                <Search className="h-4 w-4" />
-              </Button>
+              {/* Mobile Search */}
+              <div className="w-8">
+                <SearchBar 
+                  placeholder="Search..."
+                  className="h-9 w-9 p-0"
+                  variant="mobile"
+                />
+              </div>
 
               {/* Notifications */}
               <Button variant="ghost" size="icon" className="relative h-9 w-9">
@@ -321,152 +260,11 @@ const EnhancedNavigation = () => {
             {/* Search and Actions */}
             <div className="flex items-center space-x-2">
               {/* Search */}
-              <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="w-[200px] justify-start text-muted-foreground">
-                    <Search className="mr-2 h-4 w-4" />
-                    Search Bible & Literature...
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="mx-4 md:mx-0 max-w-[calc(100vw-2rem)] md:max-w-2xl max-h-[85vh] p-0 gap-0">
-                  {/* Header */}
-                  <div className="flex items-center justify-between p-4 md:p-6 border-b bg-muted/20">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                        <Search className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div>
-                        <DialogTitle className="text-lg md:text-xl font-semibold">Search OpenBible</DialogTitle>
-                        <p className="text-sm text-muted-foreground">Books, verses, literature & topics</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Search Content */}
-                  <div className="flex-1 overflow-hidden">
-                    <Command className="border-0">
-                      <div className="p-4 md:p-6 border-b">
-                        <CommandInput 
-                          placeholder="Search Bible verses..." 
-                          className="h-12 text-base bg-muted/30 border-0 rounded-xl px-4"
-                          value={searchQuery}
-                          onValueChange={setSearchQuery}
-                        />
-                      </div>
-                      <CommandList className="max-h-[60vh] overflow-y-auto">
-                        <CommandEmpty>
-                          <div className="flex flex-col items-center justify-center py-8 md:py-12 text-center">
-                            <div className="p-3 md:p-4 bg-muted/30 rounded-full mb-3 md:mb-4">
-                              <Search className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground" />
-                            </div>
-                            <p className="text-sm md:text-base font-medium text-muted-foreground">
-                              {isSearching ? 'Searching...' : searchQuery.length < 3 ? 'Type at least 3 characters to search' : 'No results found'}
-                            </p>
-                            <p className="text-xs md:text-sm text-muted-foreground mt-1">
-                              {!isSearching && searchQuery.length >= 3 && 'Try different keywords'}
-                            </p>
-                          </div>
-                        </CommandEmpty>
-                        
-                        <div className="p-2 md:p-4">
-                          {/* Search Results */}
-                          {searchResults.length > 0 && (
-                            <CommandGroup>
-                              <div className="flex items-center gap-2 px-3 py-2 md:py-3 mb-2 md:mb-3">
-                                <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
-                                <span className="font-medium md:font-semibold text-sm md:text-base text-foreground">Search Results</span>
-                              </div>
-                              {searchResults.map((result, index) => (
-                                <CommandItem 
-                                  key={index} 
-                                  onSelect={() => handleSearchSelect(result)}
-                                  className="mx-2 mb-2 p-3 md:p-4 rounded-lg md:rounded-xl hover:bg-muted/50 cursor-pointer"
-                                >
-                                  <div className="flex items-start gap-3 md:gap-4 w-full">
-                                    <div className="p-2 md:p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg md:rounded-xl flex-shrink-0">
-                                      <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-medium md:font-semibold text-foreground mb-1">
-                                        {result.book} {result.chapter}:{result.verse}
-                                      </div>
-                                      <div className="text-sm text-muted-foreground line-clamp-2">
-                                        {result.text}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          )}
-
-                          {/* Default suggestions when no search query */}
-                          {!searchQuery.trim() && (
-                            <>
-                              {/* Bible Books Section */}
-                              <CommandGroup>
-                                <div className="flex items-center gap-2 px-3 py-2 md:py-3 mb-2 md:mb-3">
-                                  <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
-                                  <span className="font-medium md:font-semibold text-sm md:text-base text-foreground">Bible Books</span>
-                                </div>
-                                {quickSearchItems.filter(item => item.type === 'book').map((item, index) => (
-                                  <CommandItem 
-                                    key={index} 
-                                    onSelect={() => setSearchOpen(false)}
-                                    className="mx-2 mb-2 p-3 md:p-4 rounded-lg md:rounded-xl hover:bg-muted/50 cursor-pointer"
-                                  >
-                                    <div className="flex items-center gap-3 md:gap-4 w-full">
-                                      <div className="p-2 md:p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg md:rounded-xl">
-                                        <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
-                                      </div>
-                                      <div className="flex-1">
-                                        <div className="font-medium md:font-semibold text-foreground">{item.title}</div>
-                                        <div className="text-sm text-muted-foreground">{item.description}</div>
-                                      </div>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-
-                              {/* Popular Verses Section */}
-                              <CommandGroup>
-                                <div className="flex items-center gap-2 px-3 py-2 md:py-3 mb-2 md:mb-3 mt-4 md:mt-6">
-                                  <Star className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
-                                  <span className="font-medium md:font-semibold text-sm md:text-base text-foreground">Popular Verses</span>
-                                </div>
-                                {quickSearchItems.filter(item => item.type === 'verse').map((item, index) => (
-                                  <CommandItem 
-                                    key={index} 
-                                    onSelect={() => setSearchOpen(false)}
-                                    className="mx-2 mb-2 p-3 md:p-4 rounded-lg md:rounded-xl hover:bg-muted/50 cursor-pointer"
-                                  >
-                                    <div className="flex items-center gap-3 md:gap-4 w-full">
-                                      <div className="p-2 md:p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg md:rounded-xl">
-                                        <Star className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
-                                      </div>
-                                      <div className="flex-1">
-                                        <div className="font-medium md:font-semibold text-foreground">{item.title}</div>
-                                        <div className="text-sm text-muted-foreground">{item.description}</div>
-                                      </div>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </>
-                          )}
-                        </div>
-                      </CommandList>
-                    </Command>
-                  </div>
-                  
-                  {/* Footer */}
-                  <div className="p-4 md:p-6 border-t bg-muted/10">
-                    <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-muted-foreground">
-                      <span>Type to search or browse suggestions above</span>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <SearchBar 
+                placeholder="Search Bible & Literature..."
+                className="w-[300px]"
+                variant="desktop"
+              />
 
               {/* Theme Toggle */}
               <Button variant="ghost" size="icon" onClick={toggleTheme}>
