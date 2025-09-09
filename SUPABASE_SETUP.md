@@ -64,9 +64,28 @@ For user avatars and file uploads:
 ### **Vercel Deployment** (Recommended):
 
 1. **Push to GitHub**: Commit all your changes
-2. **Connect Vercel**: Link your GitHub repo to Vercel
-3. **Environment Variables**: Add your Supabase keys to Vercel environment
-4. **Deploy**: Vercel will build and deploy automatically
+
+2. **Connect Vercel**: 
+   - Go to [vercel.com](https://vercel.com)
+   - Import your GitHub repository
+   - Select your OpenBible project
+
+3. **Configure Environment Variables** (CRITICAL):
+   - In Vercel dashboard, go to your project
+   - Navigate to Settings → Environment Variables
+   - Add the following variables:
+     ```
+     NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+     NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+     SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+     ```
+   - **Important**: Set these for all environments (Production, Preview, Development)
+   - **Note**: Without these variables, the build will fail during the "Collecting page data" phase
+
+4. **Deploy**: 
+   - Click "Deploy" or push to your main branch
+   - Vercel will automatically build and deploy
+   - Monitor the build logs for any environment variable issues
 
 ### **Alternative: Supabase Edge Functions**:
 
@@ -106,4 +125,4 @@ Your app will be production-ready with:
 - Scalable database
 - Edge functions capability
 - Built-in security
-- Automatic backups 
+- Automatic backups

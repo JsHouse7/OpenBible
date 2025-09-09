@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "migrate:bible": "node scripts/migrate-bible-data.js"
+    "migrate:bible": "node scripts/migrate-bible-data.js",
+    "deploy": "node deploy.js",
+    "deploy:vercel": "vercel --prod"
   },
   "dependencies": {
     "@headlessui/react": "^2.1.8",

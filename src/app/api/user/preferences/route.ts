@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// Check for required environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.warn('Missing Supabase environment variables for user preferences API')
+}
 
 // Create a Supabase client for server-side operations
-const supabaseServer = createClient(supabaseUrl, supabaseServiceKey)
+const supabaseServer = supabaseUrl && supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null
 
 async function getAuthenticatedUser(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null
+  }
+
+  if (!supabaseUrl || !supabaseServiceKey) {
     return null
   }
 
@@ -41,6 +52,14 @@ async function getAuthenticatedUser(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if Supabase is configured
+    if (!supabaseServer) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const user = await getAuthenticatedUser(request)
 
     if (!user) {
@@ -81,6 +100,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Supabase is configured
+    if (!supabaseServer) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const user = await getAuthenticatedUser(request)
 
     if (!user) {
@@ -132,6 +159,14 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    // Check if Supabase is configured
+    if (!supabaseServer) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const user = await getAuthenticatedUser(request)
 
     if (!user) {
@@ -151,7 +186,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Get existing preferences
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseServer
       .from('user_preferences')
       .select('preferences')
       .eq('user_id', user.id)
@@ -164,7 +199,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Upsert merged preferences
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
       .from('user_preferences')
       .upsert({
         user_id: user.id,

@@ -227,11 +227,11 @@ export default function SearchBar({
   const getSuggestionIcon = (type: string) => {
     switch (type) {
       case 'reference':
-        return <Search className="w-4 h-4 text-blue-500" />;
+        return <Search className="w-4 h-4 text-primary" />;
       case 'popular':
-        return <TrendingUp className="w-4 h-4 text-green-500" />;
+        return <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />;
       default:
-        return <Clock className="w-4 h-4 text-gray-400" />;
+        return <Clock className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -239,7 +239,7 @@ export default function SearchBar({
     <div className={`relative w-full ${className}`}>
       <div className="relative">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-4 w-4 text-gray-400" />
+          <Search className="h-4 w-4 text-muted-foreground" />
         </div>
         
         <input
@@ -252,9 +252,10 @@ export default function SearchBar({
           onBlur={handleInputBlur}
           placeholder={placeholder}
           className={`
-            block w-full pl-10 pr-20 border border-gray-300 rounded-lg
-            focus:ring-2 focus:ring-blue-500 focus:border-transparent
-            placeholder-gray-500 bg-white shadow-sm
+            block w-full pl-10 pr-20 border border-border rounded-lg
+            focus:ring-2 focus:ring-primary focus:border-transparent
+            placeholder-muted-foreground bg-background shadow-sm
+            text-foreground
             ${sizeClasses[size]}
             ${isListening ? 'ring-2 ring-red-500 border-red-500' : ''}
           `}
@@ -264,7 +265,7 @@ export default function SearchBar({
           {query && (
             <button
               onClick={clearSearch}
-              className="p-1 text-gray-400 hover:text-gray-600 rounded"
+              className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
               type="button"
             >
               <X className="h-4 w-4" />
@@ -278,7 +279,7 @@ export default function SearchBar({
                 p-1 rounded transition-colors
                 ${isListening 
                   ? 'text-red-500 hover:text-red-600 bg-red-50' 
-                  : 'text-gray-400 hover:text-gray-600'
+                  : 'text-muted-foreground hover:text-foreground'
                 }
               `}
               type="button"
@@ -294,11 +295,11 @@ export default function SearchBar({
       {showSuggestions && (suggestions.length > 0 || isLoading) && (
         <div
           ref={suggestionsRef}
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto"
+          className="absolute z-50 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto"
         >
           {isLoading && (
-            <div className="px-4 py-2 text-sm text-gray-500 flex items-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+            <div className="px-4 py-2 text-sm text-muted-foreground flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
               Loading suggestions...
             </div>
           )}
@@ -308,16 +309,16 @@ export default function SearchBar({
               key={`${suggestion.text}-${index}`}
               onClick={() => handleSuggestionClick(suggestion)}
               className={`
-                w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-3
-                ${index === selectedIndex ? 'bg-blue-50 border-l-2 border-blue-500' : ''}
-                ${index === suggestions.length - 1 ? '' : 'border-b border-gray-100'}
+                w-full px-4 py-2 text-left hover:bg-muted/50 flex items-center space-x-3
+                ${index === selectedIndex ? 'bg-primary/10 border-l-2 border-primary' : ''}
+                ${index === suggestions.length - 1 ? '' : 'border-b border-border'}
               `}
               type="button"
             >
               {getSuggestionIcon(suggestion.type)}
-              <span className="flex-1 text-sm text-gray-900">{suggestion.text}</span>
+              <span className="flex-1 text-sm text-foreground">{suggestion.text}</span>
               {suggestion.popularity && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   {suggestion.popularity} searches
                 </span>
               )}

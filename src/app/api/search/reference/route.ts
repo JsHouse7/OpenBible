@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Check for required environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.warn('Missing Supabase environment variables for reference API');
+}
+
+const supabase = supabaseUrl && supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null;
 
 // Bible book name mappings and abbreviations
 const BOOK_MAPPINGS: { [key: string]: string } = {
@@ -130,9 +137,17 @@ function parseReference(reference: string): ParsedReference {
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if Supabase is configured
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 503 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const reference = searchParams.get('ref');
-    const version = searchParams.get('version') || 'KJV';
+    const translation = searchParams.get('translation') || 'KJV';
 
     if (!reference) {
       return NextResponse.json(
@@ -157,7 +172,7 @@ export async function GET(request: NextRequest) {
       .from('bible_verses')
       .select('*')
       .eq('book', parsed.book)
-      .eq('version', version);
+      .eq('translation', translation);
 
     if (parsed.chapter) {
       query = query.eq('chapter', parsed.chapter);

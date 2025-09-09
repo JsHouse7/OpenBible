@@ -233,13 +233,13 @@ function SearchPageContent() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-background border-b border-border">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center space-x-3 mb-6">
-            <Search className="h-8 w-8 text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Bible Search</h1>
+            <Search className="h-8 w-8 text-primary" />
+            <h1 className="text-2xl font-bold text-foreground">Bible Search</h1>
           </div>
           
           {/* Search Bar */}
@@ -254,24 +254,24 @@ function SearchPageContent() {
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              className="inline-flex items-center px-3 py-2 border border-border rounded-md text-sm font-medium text-foreground bg-background hover:bg-muted/50"
             >
               <Filter className="h-4 w-4 mr-2" />
               Filters
               {Object.values(filters).some(v => v && v !== 'both' && v !== 'relevance' && v !== 'desc' && v !== 'ESV') && (
-                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
                   Active
                 </span>
               )}
             </button>
             
             {searchResults && (
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                 <span>Sort by:</span>
                 <select
                   value={filters.sortBy}
                   onChange={(e) => handleFilterChange({ sortBy: e.target.value as any })}
-                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                  className="border border-border rounded px-2 py-1 text-sm bg-background text-foreground"
                 >
                   <option value="relevance">Relevance</option>
                   <option value="book">Book Order</option>
@@ -282,7 +282,7 @@ function SearchPageContent() {
                   onClick={() => handleFilterChange({ 
                     sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc' 
                   })}
-                  className="p-1 hover:bg-gray-100 rounded"
+                  className="p-1 hover:bg-muted/50 rounded text-muted-foreground hover:text-foreground"
                 >
                   {filters.sortOrder === 'asc' ? 
                     <SortAsc className="h-4 w-4" /> : 
@@ -297,18 +297,18 @@ function SearchPageContent() {
 
       {/* Filters Panel */}
       {showFilters && (
-        <div className="bg-white border-b border-gray-200">
+        <div className="bg-background border-b border-border">
           <div className="max-w-4xl mx-auto px-4 py-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Testament Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Testament
                 </label>
                 <select
                   value={filters.testament}
                   onChange={(e) => handleFilterChange({ testament: e.target.value as any })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground"
                 >
                   <option value="both">Both Testaments</option>
                   <option value="old">Old Testament</option>
@@ -318,13 +318,13 @@ function SearchPageContent() {
               
               {/* Version Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Version
                 </label>
                 <select
                   value={filters.version}
                   onChange={(e) => handleFilterChange({ version: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground"
                 >
                   <option value="ESV">ESV</option>
                   <option value="NIV">NIV</option>
@@ -335,7 +335,7 @@ function SearchPageContent() {
               
               {/* Books Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Specific Books (Optional)
                 </label>
                 <select
@@ -345,7 +345,7 @@ function SearchPageContent() {
                     const selected = Array.from(e.target.selectedOptions, option => option.value);
                     handleFilterChange({ books: selected.length > 0 ? selected : undefined });
                   }}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm h-20"
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm h-20 bg-background text-foreground"
                 >
                   <optgroup label="Old Testament">
                     {oldTestamentBooks.map(book => (
@@ -373,15 +373,15 @@ function SearchPageContent() {
         {!searchResults && recentSearches.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center space-x-2 mb-4">
-              <Clock className="h-5 w-5 text-gray-400" />
-              <h2 className="text-lg font-medium text-gray-900">Recent Searches</h2>
+              <Clock className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-medium text-foreground">Recent Searches</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {recentSearches.map((search, index) => (
                 <button
                   key={index}
                   onClick={() => handleSearch(search)}
-                  className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors"
+                  className="px-3 py-1 bg-muted text-foreground rounded-full text-sm hover:bg-muted/80 transition-colors"
                 >
                   {search}
                 </button>
@@ -406,11 +406,11 @@ function SearchPageContent() {
         {/* Empty State */}
         {!searchResults && !isLoading && (
           <div className="text-center py-12">
-            <BookOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <BookOpen className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
               Search the Bible
             </h3>
-            <p className="text-gray-500 max-w-md mx-auto">
+            <p className="text-muted-foreground max-w-md mx-auto">
               Enter keywords to search for verses, or type a reference like "John 3:16" 
               to find specific passages.
             </p>
@@ -424,10 +424,10 @@ function SearchPageContent() {
 export default function SearchPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading search...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading search...</p>
         </div>
       </div>
     }>

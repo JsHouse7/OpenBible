@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Check for required environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.warn('Missing Supabase environment variables for suggestions API');
+}
+
+const supabase = supabaseUrl && supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null;
 
 // Common Bible search terms and phrases
 const COMMON_SEARCH_TERMS = [
@@ -43,6 +50,48 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         suggestions: [],
         type: 'empty'
+      });
+    }
+
+    // If Supabase is not configured, return basic suggestions
+    if (!supabase) {
+      const suggestions: Array<{
+        text: string;
+        type: 'verse' | 'reference' | 'popular';
+      }> = [];
+      
+      const normalizedQuery = query.toLowerCase().trim();
+      
+      // Add Bible book suggestions for reference searches
+      if (type === 'all' || type === 'reference') {
+        const bookSuggestions = BIBLE_BOOKS
+          .filter(book => book.toLowerCase().includes(normalizedQuery))
+          .slice(0, 5)
+          .map(book => ({
+            text: book,
+            type: 'reference' as const
+          }));
+        
+        suggestions.push(...bookSuggestions);
+      }
+      
+      // Add common search terms for verse searches
+      if (type === 'all' || type === 'verse') {
+        const termSuggestions = COMMON_SEARCH_TERMS
+          .filter(term => term.includes(normalizedQuery))
+          .slice(0, 3)
+          .map(term => ({
+            text: term,
+            type: 'popular' as const
+          }));
+        
+        suggestions.push(...termSuggestions);
+      }
+      
+      return NextResponse.json({
+        suggestions: suggestions.slice(0, limit),
+        query: normalizedQuery,
+        type
       });
     }
 
