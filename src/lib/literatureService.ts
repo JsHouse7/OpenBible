@@ -81,7 +81,11 @@ export class LiteratureService {
    */
   static async loadLiteratureWork(id: string): Promise<LiteratureWork | null> {
     try {
-      const response = await fetch(`/api/literature/load?id=${encodeURIComponent(id)}`)
+      const response = await fetch('/api/literature/load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      })
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -146,9 +150,13 @@ export class LiteratureService {
    */
   static async deleteLiteratureWork(id: string): Promise<void> {
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const response = await fetch('/api/literature/delete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
         body: JSON.stringify({ id })
       });
 
@@ -165,9 +173,13 @@ export class LiteratureService {
 
   static async updateLiteratureWork(updatedWork: Partial<LiteratureWork>): Promise<void> {
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const response = await fetch('/api/literature/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
         body: JSON.stringify({ work: updatedWork })
       });
 

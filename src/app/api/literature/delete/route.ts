@@ -1,46 +1,35 @@
-import { supabase } from '@/lib/supabase';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { id } = await request.json();
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Authorization header required' }, { status: 401 })
+    }
+    const token = authHeader.substring(7)
 
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    )
+
+    const { id } = await request.json()
     if (!id) {
-      return NextResponse.json({ error: 'Work ID is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Work ID is required' }, { status: 400 })
     }
 
-    // Delete from work_authors
-    const { error: waError } = await supabase
-      .from('work_authors')
-      .delete()
-      .eq('work_id', id);
-
-    if (waError) throw waError;
-
-    // Delete from works
     const { error: workError } = await supabase
       .from('works')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
 
-    if (workError) throw workError;
+    if (workError) throw workError
 
-    // Optional: Clean up authors with no works
-    const { data: orphanAuthors } = await supabase
-      .from('authors')
-      .select('id')
-      .not('id', 'in', '(SELECT author_id FROM work_authors)');
-
-    if (orphanAuthors?.length) {
-      await supabase
-        .from('authors')
-        .delete()
-        .in('id', orphanAuthors.map(a => a.id));
-    }
-
-    return NextResponse.json({ message: 'Work deleted successfully' });
+    return NextResponse.json({ message: 'Work deleted successfully' })
   } catch (error) {
-    console.error('Error deleting work:', error);
-    return NextResponse.json({ error: 'Failed to delete work' }, { status: 500 });
+    console.error('Error deleting work:', error)
+    return NextResponse.json({ error: 'Failed to delete work' }, { status: 500 })
   }
 }

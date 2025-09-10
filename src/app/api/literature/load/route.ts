@@ -1,62 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const id = request.nextUrl.searchParams.get('id')
-    
+    const { id } = await request.json()
     if (!id) {
       return NextResponse.json({ error: 'Work ID is required' }, { status: 400 })
     }
 
-    console.log('API: Loading work with ID:', id)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
 
-    // Get work details with authors
+    // Fetch work by id
     const { data: work, error: workError } = await supabase
-      .from('literature_works')
-      .select(`
-        *,
-        work_authors!inner(
-          authors(name)
-        )
-      `)
+      .from('works')
+      .select('id, title, slug, description, content, year_published, created_at, author_id')
       .eq('id', id)
       .single()
 
-    if (workError) {
+    if (workError || !work) {
       console.error('API: Error fetching work:', workError)
       return NextResponse.json({ error: 'Work not found' }, { status: 404 })
     }
 
-    if (!work) {
-      return NextResponse.json({ error: 'Work not found' }, { status: 404 })
+    // Resolve author name if available
+    let authorName: string | null = null
+    if (work.author_id) {
+      const { data: authorRow } = await supabase
+        .from('authors')
+        .select('name')
+        .eq('id', work.author_id)
+        .single()
+      authorName = authorRow?.name ?? null
     }
 
-    // Transform the data to match expected format
+    // Parse stored JSON content and normalize to expected shape
+    let parsed: any = null
+    try {
+      if (typeof work.content === 'string') {
+        parsed = JSON.parse(work.content)
+      } else if (work.content && typeof work.content === 'object') {
+        parsed = work.content
+      }
+    } catch {
+      parsed = null
+    }
+
+    const chapters = Array.isArray(parsed?.chapters) ? parsed.chapters : []
+    const wordCount = parsed?.metadata?.wordCount ?? chapters.reduce((sum: number, c: any) => sum + (c?.wordCount || 0), 0)
+    const chapterCount = parsed?.metadata?.chapterCount ?? chapters.length
+    const estimatedReadingTime = parsed?.metadata?.estimatedReadingTime ?? (wordCount ? Math.round(wordCount / 200) : 0)
+
     const transformedWork = {
       id: work.id,
-      title: work.title,
-      author: work.work_authors.map((wa: any) => wa.authors.name).join(', '),
-      year: work.year,
-      difficulty: work.difficulty,
-      description: work.description,
-      content: work.content,
-      chapters: work.chapters || [],
+      title: parsed?.title || work.title,
+      author: authorName || parsed?.author || 'Unknown Author',
+      year: parsed?.year ?? work.year_published ?? null,
+      difficulty: parsed?.difficulty ?? parsed?.metadata?.difficulty ?? 'intermediate',
+      description: (parsed?.description ?? work.description) || '',
+      chapters,
       metadata: {
-        wordCount: work.word_count,
-        chapterCount: work.chapter_count,
-        dateAdded: work.created_at
+        wordCount,
+        chapterCount,
+        estimatedReadingTime,
+        dateAdded: parsed?.metadata?.dateAdded ?? work.created_at
       }
     }
 
     console.log('API: Successfully loaded work:', transformedWork.title)
-    return NextResponse.json(transformedWork)
-
+    return NextResponse.json({ work: transformedWork })
   } catch (error) {
-    console.error('API: Error in load route:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('API: Error in /api/literature/load:', error)
+    return NextResponse.json({ error: 'Failed to load work' }, { status: 500 })
   }
 }
