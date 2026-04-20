@@ -69,6 +69,8 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
     description: ''
   })
   const [existingWorks, setExistingWorks] = useState<ExistingWork[]>([])
+  const [existingWorksLoading, setExistingWorksLoading] = useState(true)
+  const [existingWorksError, setExistingWorksError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewWork, setPreviewWork] = useState<LiteratureWork | null>(null)
   const [editingWork, setEditingWork] = useState<ExistingWork | null>(null)
@@ -240,6 +242,8 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
 
   const loadExistingWorks = async () => {
     try {
+      setExistingWorksError(null)
+      setExistingWorksLoading(true)
       const index = await LiteratureService.getLiteratureIndex()
       const works: ExistingWork[] = index.works.map((work) => ({
         id: work.id,
@@ -254,7 +258,15 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
       }))
       setExistingWorks(works)
     } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Could not load works from the server.'
+      setExistingWorksError(message)
+      setExistingWorks([])
       console.error('Error loading works:', error)
+    } finally {
+      setExistingWorksLoading(false)
     }
   }
 
@@ -639,7 +651,29 @@ const handleRefreshLibrary = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {existingWorks.length === 0 ? (
+              {existingWorksLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin opacity-70" />
+                  <p>Loading works…</p>
+                </div>
+              ) : existingWorksError ? (
+                <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 space-y-3">
+                  <div className="flex items-start gap-2 text-destructive">
+                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Could not load the catalog</p>
+                      <p className="text-sm mt-1 opacity-90">{existingWorksError}</p>
+                      <p className="text-xs mt-2 text-muted-foreground">
+                        Check that this app&apos;s Supabase URL/key match the project where the work was saved, then retry.
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => loadExistingWorks()}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry
+                  </Button>
+                </div>
+              ) : existingWorks.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Book className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No literature works uploaded yet.</p>

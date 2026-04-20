@@ -61,7 +61,11 @@ const LiteratureLibrary = () => {
       setWorks(index.works)
       setError(null)
     } catch (err) {
-      setError('Failed to load literature works')
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Failed to load literature works'
+      setError(message)
       console.error('Error loading literature works:', err)
     } finally {
       setLoading(false)
@@ -126,10 +130,12 @@ const LiteratureLibrary = () => {
 
   const allCategories = ['all', 'beginner', 'intermediate', 'advanced']
 
+  const q = searchTerm.toLowerCase()
   const filteredWorks = works.filter((work: LiteratureWorkSummary) => {
-    const matchesSearch = work.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         work.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         work.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch =
+      (work.title ?? '').toLowerCase().includes(q) ||
+      (work.author ?? '').toLowerCase().includes(q) ||
+      (work.description ?? '').toLowerCase().includes(q)
     const matchesCategory = selectedCategory === 'all' || work.difficulty === selectedCategory
     return matchesSearch && matchesCategory
   })

@@ -148,29 +148,38 @@ export class LiteratureService {
    * Load the literature index from Supabase database
    */
   static async loadLiteratureIndex(): Promise<LiteratureIndex> {
-    try {
-      const response = await fetch('/api/literature/list')
-      
-      if (!response.ok) {
-        console.error('Failed to load literature index from database')
-        return {
-          works: [],
-          lastUpdated: new Date().toISOString()
+    const response = await fetch('/api/literature/list', { cache: 'no-store' })
+
+    if (!response.ok) {
+      let detail = `HTTP ${response.status}`
+      try {
+        const errBody = await response.json()
+        if (errBody && typeof errBody.error === 'string') detail = errBody.error
+      } catch {
+        /* ignore */
+      }
+      throw new Error(detail === `HTTP ${response.status}` ? 'Could not load literature list.' : detail)
+    }
+
+    const result = await response.json()
+    const rawWorks = Array.isArray(result.works) ? result.works : []
+    const works = rawWorks
+      .map((w: unknown): LiteratureWorkSummary | null => {
+        try {
+          return normalizeLiteratureWorkSummary(w)
+        } catch (e) {
+          console.warn('Skipping malformed literature row:', e, w)
+          return null
         }
-      }
-      
-      const result = await response.json()
-      const rawWorks = Array.isArray(result.works) ? result.works : []
-      return {
-        works: rawWorks.map((w: unknown) => normalizeLiteratureWorkSummary(w)),
-        lastUpdated: new Date().toISOString()
-      }
-    } catch (error) {
-      console.error('Error loading literature index:', error)
-      return {
-        works: [],
-        lastUpdated: new Date().toISOString()
-      }
+      })
+      .filter(
+        (w: LiteratureWorkSummary | null): w is LiteratureWorkSummary =>
+          w !== null && w.id.length > 0
+      )
+
+    return {
+      works,
+      lastUpdated: new Date().toISOString(),
     }
   }
 
