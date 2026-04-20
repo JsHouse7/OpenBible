@@ -31,23 +31,34 @@ export async function GET(request: NextRequest) {
       }
 
       const chapters = Array.isArray(parsed?.chapters) ? parsed.chapters : []
-      const wordCount = parsed?.metadata?.wordCount ?? chapters.reduce((sum: number, c: any) => sum + (c?.wordCount || 0), 0)
+      const wordCount =
+        parsed?.metadata?.wordCount ??
+        chapters.reduce((sum: number, c: any) => sum + (c?.wordCount || 0), 0)
       const chapterCount = parsed?.metadata?.chapterCount ?? chapters.length
-      const estimatedReadingTime = parsed?.metadata?.estimatedReadingTime ?? (wordCount ? Math.round(wordCount / 200) : 0)
+      const estimatedReadingTime =
+        parsed?.metadata?.estimatedReadingTime ??
+        (wordCount ? Math.ceil(wordCount / 200) : 0)
+
+      const diff = parsed?.difficulty ?? parsed?.metadata?.difficulty ?? 'intermediate'
+      const difficulty =
+        diff === 'beginner' || diff === 'intermediate' || diff === 'advanced'
+          ? diff
+          : 'intermediate'
+
+      const yearRaw = parsed?.year ?? w.year_published ?? null
 
       return {
         id: w.id,
         title: parsed?.title || w.title,
         author: parsed?.author || 'Unknown Author',
         description: (parsed?.description ?? w.description) || '',
-        year: parsed?.year ?? w.year_published ?? null,
-        difficulty: parsed?.difficulty ?? parsed?.metadata?.difficulty ?? 'intermediate',
-        metadata: {
-          wordCount,
-          chapterCount,
-          estimatedReadingTime,
-          dateAdded: parsed?.metadata?.dateAdded ?? w.created_at
-        }
+        year: yearRaw === null || yearRaw === undefined ? undefined : Number(yearRaw),
+        difficulty,
+        wordCount,
+        chapterCount,
+        estimatedReadingTime,
+        filename: `${w.slug || 'work'}.json`,
+        dateAdded: parsed?.metadata?.parseDate ?? parsed?.metadata?.dateAdded ?? w.created_at,
       }
     })
 

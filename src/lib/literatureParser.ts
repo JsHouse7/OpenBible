@@ -413,6 +413,69 @@ export class LiteratureParser {
     return opfFiles[0] || ''
   }
 
+  /** Join OPF directory with manifest href for zip entry keys (POSIX-style). */
+  private static epubResolvePath(opfPath: string, href: string): string {
+    const baseDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : ''
+    const combined = `${baseDir}${href}`
+    const segments = combined.split('/').filter((s) => s.length > 0 && s !== '.')
+    const stack: string[] = []
+    for (const seg of segments) {
+      if (seg === '..') stack.pop()
+      else stack.push(seg)
+    }
+    return stack.join('/')
+  }
+
+  /** Manifest id → href plus spine reading order → zip paths that exist in the archive. */
+  private static async getOrderedContentPathsFromOpf(zip: JSZip, opfPath: string): Promise<string[] | null> {
+    const opfContent = await zip.file(opfPath)?.async('text')
+    if (!opfContent) return null
+
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(opfContent, 'text/xml')
+
+    const idToHref = new Map<string, string>()
+    const all = doc.getElementsByTagName('*')
+    for (let i = 0; i < all.length; i++) {
+      const el = all[i]
+      if (el.localName !== 'item') continue
+      if (el.parentElement?.localName !== 'manifest') continue
+      const id = el.getAttribute('id')
+      const href = el.getAttribute('href')
+      if (id && href) idToHref.set(id, href)
+    }
+
+    const paths: string[] = []
+    for (let i = 0; i < all.length; i++) {
+      const itemref = all[i]
+      if (itemref.localName !== 'itemref') continue
+      if (itemref.parentElement?.localName !== 'spine') continue
+      const linear = itemref.getAttribute('linear')
+      if (linear === 'no') continue
+      const idref = itemref.getAttribute('idref')
+      if (!idref) continue
+      const href = idToHref.get(idref)
+      if (!href) continue
+      const zipPath = this.epubResolvePath(opfPath, href)
+      let file = zip.files[zipPath]
+      let resolved = zipPath
+      if (!file || file.dir) {
+        try {
+          const decoded = decodeURIComponent(zipPath)
+          if (decoded !== zipPath && zip.files[decoded] && !zip.files[decoded].dir) {
+            file = zip.files[decoded]
+            resolved = decoded
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      if (file && !file.dir) paths.push(resolved)
+    }
+
+    return paths.length > 0 ? paths : null
+  }
+
   private static async extractEpubMetadata(zip: JSZip, opfPath: string): Promise<any> {
     const opfContent = await zip.file(opfPath)?.async('text')
     if (!opfContent) return {}
@@ -430,30 +493,37 @@ export class LiteratureParser {
   }
 
   private static async extractEpubChapters(zip: JSZip, opfPath: string): Promise<LiteratureChapter[]> {
-    // This is a simplified implementation
-    // In a real implementation, you'd parse the spine and extract HTML files
-    const htmlFiles = Object.keys(zip.files).filter(name => 
-      name.endsWith('.html') || name.endsWith('.xhtml')
-    )
-    
+    let orderedPaths = await this.getOrderedContentPathsFromOpf(zip, opfPath)
+    if (!orderedPaths || orderedPaths.length === 0) {
+      orderedPaths = Object.keys(zip.files)
+        .filter((name) => {
+          const f = zip.files[name]
+          return !f.dir && (name.endsWith('.html') || name.endsWith('.xhtml') || name.endsWith('.htm'))
+        })
+        .sort((a, b) => a.localeCompare(b))
+    }
+
     const chapters: LiteratureChapter[] = []
-    
-    for (let i = 0; i < htmlFiles.length; i++) {
-      const file = zip.files[htmlFiles[i]]
+
+    for (let i = 0; i < orderedPaths.length; i++) {
+      const zipPath = orderedPaths[i]
+      const file = zip.files[zipPath]
       const content = await file.async('text')
       const parser = new DOMParser()
       const doc = parser.parseFromString(content, 'text/html')
       const textContent = doc.body?.textContent || ''
-      
+
       if (textContent.trim()) {
-        chapters.push(this.createChapter(
-          i + 1,
-          doc.querySelector('h1, h2, title')?.textContent || `Chapter ${i + 1}`,
-          textContent
-        ))
+        chapters.push(
+          this.createChapter(
+            i + 1,
+            doc.querySelector('h1, h2, title')?.textContent?.trim() || `Chapter ${i + 1}`,
+            textContent
+          )
+        )
       }
     }
-    
+
     return chapters
   }
 }

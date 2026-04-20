@@ -3,35 +3,29 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/Button'
+import { Button, buttonVariants } from '@/components/ui/Button'
 import { Input } from '@/components/ui/input'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Progress } from '@/components/ui/progress'
-import { LiteratureReader } from '@/components/LiteratureReader'
-import { LiteratureAdmin } from '@/components/LiteratureAdmin'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useAuth } from '@/components/AuthProvider'
 import { useFonts } from '@/hooks/useFonts'
 import { cn } from '@/lib/utils'
-import { LiteratureService, LiteratureWorkSummary, LiteratureIndex } from '@/lib/literatureService'
+import { LiteratureService, LiteratureWorkSummary } from '@/lib/literatureService'
 import Link from 'next/link'
 import { 
   Search,
   BookOpen, 
   Clock, 
-  Star, 
   Download,
-  Heart,
-  Calendar,
-  BookmarkIcon,
-  Eye,
-  Plus,
-  Upload,
   Settings,
   BarChart3,
-  Filter,
-  Trash2
+  Trash2,
+  ChevronDown,
 } from 'lucide-react'
 
 interface Author {
@@ -44,10 +38,9 @@ interface Author {
 }
 
 const LiteratureLibrary = () => {
+  const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [selectedWork, setSelectedWork] = useState<string | null>(null)
-  const [showAdmin, setShowAdmin] = useState(false)
 
   const [works, setWorks] = useState<LiteratureWorkSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,11 +57,7 @@ const LiteratureLibrary = () => {
   const loadLiteratureWorks = async () => {
     try {
       setLoading(true)
-      console.log('Loading literature works...')
       const index = await LiteratureService.getLiteratureIndex()
-      console.log('Received index:', index)
-      console.log('Works array:', index.works)
-      console.log('Number of works:', index.works.length)
       setWorks(index.works)
       setError(null)
     } catch (err) {
@@ -88,10 +77,22 @@ const LiteratureLibrary = () => {
     }
   }
 
-  const handleWorkAdded = () => {
-    console.log('handleWorkAdded called - refreshing library...')
-    loadLiteratureWorks()
-    loadStats()
+  const handleDownloadJson = async (workId: string) => {
+    try {
+      await LiteratureService.downloadWorkAsJson(workId)
+    } catch (err) {
+      console.error(err)
+      alert('Could not download JSON.')
+    }
+  }
+
+  const handleDownloadTxt = async (workId: string) => {
+    try {
+      await LiteratureService.downloadWorkAsPlainText(workId)
+    } catch (err) {
+      console.error(err)
+      alert('Could not download text file.')
+    }
   }
 
   const handleDeleteWork = async (workId: string) => {
@@ -133,11 +134,6 @@ const LiteratureLibrary = () => {
     return matchesSearch && matchesCategory
   })
 
-  console.log('All works:', works)
-  console.log('Search term:', searchTerm)
-  console.log('Selected category:', selectedCategory)
-  console.log('Filtered works:', filteredWorks)
-
   const filteredAuthors = groupedAuthors.filter((author: Author) => 
     author.works.some((work: LiteratureWorkSummary) => filteredWorks.includes(work))
   ).map((author: Author) => ({
@@ -145,15 +141,10 @@ const LiteratureLibrary = () => {
     works: author.works.filter((work: LiteratureWorkSummary) => filteredWorks.includes(work))
   }))
 
-  console.log('Filtered authors:', filteredAuthors)
-    console.log('Filtered authors detailed:', filteredAuthors.map(author => ({
-      name: author.name,
-      totalWorks: author.totalWorks,
-      works: author.works.map(work => ({ id: work.id, title: work.title }))
-    })))
   const formatReadingTime = (minutes: number) => {
+    if (!Number.isFinite(minutes) || minutes < 0) return '—'
     const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
+    const mins = Math.round(minutes % 60)
     if (hours > 0) {
       return `${hours}h ${mins}m`
     }
@@ -222,16 +213,20 @@ const LiteratureLibrary = () => {
           <Badge variant="secondary" className={cn("px-3 py-1", getUITextClasses())}>
             {works.length} works available
           </Badge>
-          <Link href="/literature/admin">
-             <Button
-               variant="outline"
-               size="sm"
-               className={getUITextClasses()}
-             >
-               <Settings className="h-4 w-4 mr-2" />
-               Admin
-             </Button>
-           </Link>
+          {user ? (
+            <Link href="/literature/admin">
+              <Button variant="outline" size="sm" className={getUITextClasses()}>
+                <Settings className="h-4 w-4 mr-2" />
+                Admin
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/auth">
+              <Button variant="outline" size="sm" className={getUITextClasses()}>
+                Sign in to manage
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -353,19 +348,22 @@ const LiteratureLibrary = () => {
                         <div className="space-y-2">
                           <div className="flex items-start justify-between">
                             <h4 className={cn("font-medium text-sm leading-tight", getUITextClasses())}>{work.title}</h4>
-                            <div className="flex items-center space-x-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDeleteWork(work.id)
-                                }}
-                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
+                            {user && (
+                              <div className="flex items-center space-x-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDeleteWork(work.id)
+                                  }}
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                  aria-label="Delete work"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
                           <p className={cn("text-xs text-muted-foreground line-clamp-2", getUITextClasses())}>{work.description}</p>
                           <div className="flex items-center justify-between">
@@ -381,21 +379,38 @@ const LiteratureLibrary = () => {
                             </Badge>
                           </div>
                           <div className="flex gap-2 pt-2">
-                            <Button 
-                              size="sm"
-                              className={cn("flex-1 text-xs", getUITextClasses())}
-                              onClick={() => setSelectedWork(work.id)}
+                            <Link
+                              href={`/literature/${work.id}`}
+                              className={cn(
+                                buttonVariants({ size: 'sm' }),
+                                'flex-1 text-xs inline-flex items-center justify-center gap-1',
+                                getUITextClasses()
+                              )}
                             >
-                              <BookOpen className="mr-1 h-3 w-3" />
+                              <BookOpen className="h-3 w-3 shrink-0" />
                               Read
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className={cn("text-xs", getUITextClasses())}
-                            >
-                              <Download className="h-3 w-3" />
-                            </Button>
+                            </Link>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={cn("text-xs shrink-0", getUITextClasses())}
+                                  type="button"
+                                >
+                                  <Download className="h-3 w-3 mr-1" />
+                                  <ChevronDown className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleDownloadTxt(work.id)}>
+                                  Plain text (.txt)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDownloadJson(work.id)}>
+                                  Full JSON (.json)
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       </CardContent>
@@ -408,28 +423,6 @@ const LiteratureLibrary = () => {
         )}
       </div>
       
-      {/* Literature Reader Modal */}
-      {selectedWork && (
-        <LiteratureReader 
-          workId={selectedWork} 
-          onClose={() => setSelectedWork(null)} 
-        />
-      )}
-
-      {/* Admin Modal */}
-      {showAdmin && (
-        <Dialog open={showAdmin} onOpenChange={setShowAdmin}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className={getHeadingClasses()}>Literature Administration</DialogTitle>
-              <DialogDescription className={getUITextClasses()}>
-                Add new literature works to the library
-              </DialogDescription>
-            </DialogHeader>
-            <LiteratureAdmin onWorkAdded={handleWorkAdded} />
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   )
 }

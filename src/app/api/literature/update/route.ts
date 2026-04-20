@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import slugify from 'slugify'
+import { toSlug } from '@/lib/textSlug'
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       } else {
         const { data: newAuthor, error: authorError } = await supabase
           .from('authors')
-          .insert({ name: work.author, slug: slugify(work.author) })
+          .insert({ name: work.author, slug: toSlug(work.author) })
           .select('id')
           .single()
         if (authorError || !newAuthor) {
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     const updatedData: any = {
       title: work.title || existingWork.title,
-      slug: slugify(work.title || existingWork.title),
+      slug: toSlug(work.title || existingWork.title),
       description: work.description ?? existingWork.description,
       year_published: work.year ?? existingWork.year_published,
       content: JSON.stringify(updatedContent),

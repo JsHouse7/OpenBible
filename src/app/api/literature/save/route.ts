@@ -1,17 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { LiteratureWork } from '@/lib/literatureParser'
-
-function slugify(text: string): string {
-  return text
-    .toString()
-    .toLowerCase()
-    .replace(/\s+/g, '-') // Replace spaces with -
-    .replace(/[^\w\-]+/g, '') // Remove all non-word chars
-    .replace(/\-\-+/g, '-') // Replace multiple - with single -
-    .replace(/^-+/, '') // Trim - from start of text
-    .replace(/-+$/, '') // Trim - from end of text
-}
+import { toSlug } from '@/lib/textSlug'
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -69,7 +59,7 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-      const authorSlug = slugify(literatureWork.author)
+      const authorSlug = toSlug(literatureWork.author)
       const { data: newAuthor, error: authorError } = await supabase
         .from('authors')
         .insert({
@@ -139,7 +129,7 @@ export async function POST(request: NextRequest) {
       if (!literatureWork.title) {
         return NextResponse.json({ error: 'Work title is required' }, { status: 400 });
       }
-      const workSlug = slugify(literatureWork.title)
+      const workSlug = toSlug(literatureWork.title)
       
       const { data, error: workError } = await supabase
         .from('works')

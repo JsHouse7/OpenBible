@@ -4,6 +4,44 @@ import { LiteratureWork } from './literatureParser'
 // Re-export LiteratureWork for other components
 export type { LiteratureWork }
 
+function normalizeLiteratureWorkSummary(raw: unknown): LiteratureWorkSummary {
+  const r = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const meta =
+    r.metadata && typeof r.metadata === 'object'
+      ? (r.metadata as Record<string, unknown>)
+      : {}
+
+  const diff = r.difficulty ?? meta.difficulty
+  const difficulty: LiteratureWorkSummary['difficulty'] =
+    diff === 'beginner' || diff === 'intermediate' || diff === 'advanced' ? diff : 'intermediate'
+
+  const wordCount = Number(r.wordCount ?? meta.wordCount ?? 0)
+  const chapterCount = Number(r.chapterCount ?? meta.chapterCount ?? 0)
+  const estimatedReadingTime = Number(r.estimatedReadingTime ?? meta.estimatedReadingTime ?? 0)
+
+  let year: number | undefined
+  const yr = r.year
+  if (typeof yr === 'number' && Number.isFinite(yr)) year = yr
+  else if (typeof yr === 'string' && yr !== '') {
+    const n = Number(yr)
+    if (Number.isFinite(n)) year = n
+  }
+
+  return {
+    id: String(r.id ?? ''),
+    title: String(r.title ?? ''),
+    author: String(r.author ?? ''),
+    year,
+    difficulty,
+    description: String(r.description ?? ''),
+    wordCount: Number.isFinite(wordCount) ? wordCount : 0,
+    chapterCount: Number.isFinite(chapterCount) ? chapterCount : 0,
+    estimatedReadingTime: Number.isFinite(estimatedReadingTime) ? estimatedReadingTime : 0,
+    filename: String(r.filename ?? `${r.id ?? 'work'}.json`),
+    dateAdded: String(r.dateAdded ?? meta.dateAdded ?? new Date().toISOString()),
+  }
+}
+
 export interface LiteratureIndex {
   works: LiteratureWorkSummary[]
   lastUpdated: string
@@ -24,9 +62,6 @@ export interface LiteratureWorkSummary {
 }
 
 export class LiteratureService {
-  private static readonly LITERATURE_PATH = '/literature/'
-  private static readonly INDEX_FILE = 'index.json'
-
   /**
    * Save a literature work to the Supabase database
    */
@@ -125,8 +160,9 @@ export class LiteratureService {
       }
       
       const result = await response.json()
+      const rawWorks = Array.isArray(result.works) ? result.works : []
       return {
-        works: result.works,
+        works: rawWorks.map((w: unknown) => normalizeLiteratureWorkSummary(w)),
         lastUpdated: new Date().toISOString()
       }
     } catch (error) {
@@ -227,91 +263,6 @@ export class LiteratureService {
   }
 
   /**
-   * Update the literature index with a new work
-   */
-  private static async updateIndex(work: LiteratureWork, filename: string): Promise<void> {
-    const index = await this.getLiteratureIndex()
-    
-    // Remove existing entry if updating
-    const existingIndex = index.works.findIndex(w => w.id === work.id)
-    if (existingIndex !== -1) {
-      index.works.splice(existingIndex, 1)
-    }
-    
-    // Add new entry
-    const workSummary: LiteratureWorkSummary = {
-      id: work.id,
-      title: work.title,
-      author: work.author,
-      year: work.year,
-      difficulty: work.difficulty,
-      description: work.description,
-      wordCount: work.metadata?.wordCount || 0,
-      chapterCount: work.chapters.length,
-      estimatedReadingTime: work.metadata?.estimatedReadingTime || 0,
-      filename,
-      dateAdded: new Date().toISOString()
-    }
-    
-    index.works.push(workSummary)
-    index.lastUpdated = new Date().toISOString()
-    
-    // Sort by title
-    index.works.sort((a, b) => a.title.localeCompare(b.title))
-    
-    await this.saveFile(this.INDEX_FILE, JSON.stringify(index, null, 2))
-  }
-
-  /**
-   * Save a file to the literature directory using the API
-   */
-  private static async saveFile(filename: string, content: string): Promise<void> {
-    try {
-      console.log(`Attempting to save file: ${filename}`);
-      console.log(`Content length: ${content.length} characters`);
-      
-      const requestBody = { filename, content };
-      console.log('Request body prepared:', { filename, contentLength: content.length });
-      
-      const response = await fetch('/api/literature/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      })
-
-      console.log(`Response status: ${response.status}`);
-      console.log(`Response ok: ${response.ok}`);
-      
-      if (!response.ok) {
-        const responseText = await response.text();
-        console.error('Error response text:', responseText);
-        
-        let errorData;
-        try {
-          errorData = JSON.parse(responseText);
-        } catch {
-          errorData = { error: responseText };
-        }
-        
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log(`File ${filename} saved successfully:`, result.message);
-    } catch (error) {
-      console.error(`Error saving file ${filename}:`, error);
-      console.error('Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      throw new Error(`Failed to save file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
    * Validate a literature work structure
    */
   static validateLiteratureWork(work: any): work is LiteratureWork {
@@ -334,7 +285,8 @@ export class LiteratureService {
   }
 
   /**
-   * Import literature works from a JSON file
+   * Parse a JSON file into `LiteratureWork[]` for local validation. Call
+   * `saveLiteratureWork` for each work to persist to Supabase (requires auth).
    */
   static async importLiteratureWorks(file: File): Promise<LiteratureWork[]> {
     try {
@@ -361,7 +313,7 @@ export class LiteratureService {
   }
 
   /**
-   * Export all literature works to a JSON file
+   * Download every work via the public load API into one JSON export file (client-side).
    */
   static async exportLiteratureWorks(): Promise<void> {
     try {
@@ -425,5 +377,40 @@ export class LiteratureService {
     }
     
     return stats
+  }
+
+  /** Trigger download of a UTF-8 `.txt` with title, author, and all chapters. */
+  static async downloadWorkAsPlainText(workId: string): Promise<void> {
+    const work = await this.loadLiteratureWork(workId)
+    if (!work) {
+      throw new Error('Work not found')
+    }
+    const body = work.chapters
+      .map((ch) => `${ch.title}\n\n${ch.content}`)
+      .join('\n\n---\n\n')
+    const header = `${work.title}\nby ${work.author}${work.year != null ? ` (${work.year})` : ''}\n\n`
+    const blob = new Blob([header + body], { type: 'text/plain;charset=utf-8' })
+    const safe = work.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-') || 'work'
+    this.triggerBlobDownload(blob, `${safe}.txt`)
+  }
+
+  /** Trigger download of full `LiteratureWork` JSON (useful for backup or re-import after edit). */
+  static async downloadWorkAsJson(workId: string): Promise<void> {
+    const work = await this.loadLiteratureWork(workId)
+    if (!work) {
+      throw new Error('Work not found')
+    }
+    const blob = new Blob([JSON.stringify(work, null, 2)], { type: 'application/json' })
+    const safe = work.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-') || 'work'
+    this.triggerBlobDownload(blob, `${safe}.json`)
+  }
+
+  private static triggerBlobDownload(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
   }
 }
