@@ -41,16 +41,21 @@ export async function POST(request: NextRequest) {
 
     const literatureWork: LiteratureWork = work
 
-    // First, check if author exists or create new one
+    // Resolve author: prefer first match when duplicate names exist (.limit(1), not .single())
     let authorId: string
-    const { data: existingAuthor } = await supabase
+    const { data: authorRows, error: authorLookupError } = await supabase
       .from('authors')
       .select('id')
       .eq('name', literatureWork.author)
-      .single()
+      .limit(1)
 
-    if (existingAuthor) {
-      authorId = existingAuthor.id
+    if (authorLookupError) {
+      console.error('Author lookup failed:', authorLookupError)
+      return NextResponse.json({ error: 'Failed to look up author' }, { status: 500 })
+    }
+
+    if (authorRows?.[0]?.id) {
+      authorId = authorRows[0].id
     } else {
       // Create new author
       if (!literatureWork.author) {
@@ -88,17 +93,24 @@ export async function POST(request: NextRequest) {
       authorId = newAuthor.id
     }
 
-    // Create or update the work
-    const { data: existingWork } = await supabase
+    // Existing work by (title + author): at most one row (.limit(1))
+    const { data: workRows, error: workLookupError } = await supabase
       .from('works')
       .select('id')
       .eq('title', literatureWork.title)
       .eq('author_id', authorId)
-      .single()
+      .limit(1)
+
+    if (workLookupError) {
+      console.error('Work lookup failed:', workLookupError)
+      return NextResponse.json({ error: 'Failed to look up work' }, { status: 500 })
+    }
+
+    const existingWorkId = workRows?.[0]?.id
 
     let savedWork
-    if (existingWork) {
-      // Update existing work
+    if (existingWorkId) {
+      const mergedWork: LiteratureWork = { ...literatureWork, id: existingWorkId }
       const { data, error: workError } = await supabase
         .from('works')
         .update({
@@ -106,9 +118,9 @@ export async function POST(request: NextRequest) {
           content_type: 'book',
           year_published: literatureWork.year || null,
           is_available: true,
-          content: JSON.stringify(literatureWork),
+          content: JSON.stringify(mergedWork),
         })
-        .eq('id', existingWork.id)
+        .eq('id', existingWorkId)
         .select()
         .single()
 
@@ -158,6 +170,22 @@ export async function POST(request: NextRequest) {
         )
       }
       savedWork = data
+
+      // Align stored JSON `id` with database row UUID (parser id is client-generated before insert)
+      const mergedWork: LiteratureWork = { ...literatureWork, id: data.id }
+      const { error: syncError } = await supabase
+        .from('works')
+        .update({ content: JSON.stringify(mergedWork) })
+        .eq('id', data.id)
+
+      if (syncError) {
+        console.error('Failed to sync work content id:', syncError)
+        return NextResponse.json(
+          { error: 'Work created but failed to finalize content', details: syncError.message },
+          { status: 500 }
+        )
+      }
+      savedWork = { ...data, content: JSON.stringify(mergedWork) }
     }
 
     return NextResponse.json(

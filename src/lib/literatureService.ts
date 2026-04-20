@@ -63,47 +63,47 @@ export interface LiteratureWorkSummary {
 
 export class LiteratureService {
   /**
-   * Save a literature work to the Supabase database
+   * Save a literature work to the Supabase database. Returns the persisted row id (matches JSON `content.id` after save).
    */
-  static async saveLiteratureWork(work: LiteratureWork): Promise<void> {
-    try {
-      console.log(`Attempting to save literature work: ${work.title}`);
-      
-      const { data: { session } } = await supabase.auth.getSession()
+  static async saveLiteratureWork(work: LiteratureWork): Promise<{ id: string }> {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new Error('Sign in required to save literature.')
+    }
 
+    try {
       const response = await fetch('/api/literature/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ work }),
       })
 
-      console.log(`Response status: ${response.status}`);
-      
+      const responseText = await response.text()
+
       if (!response.ok) {
-        const responseText = await response.text();
-        console.error('Error response text:', responseText);
-        
-        let errorData;
+        let errorData: { error?: string }
         try {
-          errorData = JSON.parse(responseText);
+          errorData = JSON.parse(responseText)
         } catch {
-          errorData = { error: responseText };
+          errorData = { error: responseText }
         }
-        
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
       }
 
-      const responseText = await response.text();
       try {
-        const result = JSON.parse(responseText);
-        console.log('Literature work saved successfully:', result);
-        console.log(`Literature work "${work.title}" saved successfully to database`);
+        const result = JSON.parse(responseText) as { work?: { id?: string } }
+        const id = result.work?.id
+        if (!id || typeof id !== 'string') {
+          throw new Error('Save succeeded but server did not return work id.')
+        }
+        return { id }
       } catch (e) {
-        console.error('Failed to parse JSON response:', responseText);
-        throw new Error('Received an invalid response from the server.');
+        if (e instanceof Error && e.message.includes('did not return')) throw e
+        console.error('Failed to parse save response:', responseText)
+        throw new Error('Received an invalid response from the server.')
       }
     } catch (error) {
       console.error('Error saving literature work:', error)
@@ -346,6 +346,99 @@ export class LiteratureService {
     } catch (error) {
       throw new Error(`Failed to export literature works: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+  }
+
+  /**
+   * Extract text from a PDF on the server (`/api/literature/extract-pdf`).
+   * Chain with `LiteratureParser.parseText(text, options, 'pdf')`.
+   */
+  static async extractPdfText(file: File): Promise<{ text: string; pageCount?: number }> {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch('/api/literature/extract-pdf', { method: 'POST', body: form })
+    const raw = await res.text()
+    if (!res.ok) {
+      let msg = raw
+      try {
+        const err = JSON.parse(raw) as { error?: string }
+        if (err.error) msg = err.error
+      } catch {
+        /* use raw */
+      }
+      throw new Error(msg || 'PDF text extraction failed')
+    }
+    const data = JSON.parse(raw) as { text: string; pageCount?: number }
+    return { text: data.text, pageCount: data.pageCount }
+  }
+
+  /**
+   * Fetch HTML from a URL server-side (`/api/literature/fetch-html`) with basic SSRF protections.
+   * Chain with `LiteratureParser.parseHtml(html)`.
+   */
+  static async fetchHtmlFromUrl(url: string): Promise<{ html: string; finalUrl: string }> {
+    const res = await fetch('/api/literature/fetch-html', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url.trim() }),
+    })
+    const raw = await res.text()
+    if (!res.ok) {
+      let msg = raw
+      try {
+        const err = JSON.parse(raw) as { error?: string }
+        if (err.error) msg = err.error
+      } catch {
+        /* use raw */
+      }
+      throw new Error(msg || 'Failed to fetch HTML page')
+    }
+    return JSON.parse(raw) as { html: string; finalUrl: string }
+  }
+
+  /**
+   * Sanitize local/inline HTML on the server before `LiteratureParser.parseHtml`.
+   */
+  static async sanitizeHtmlLiterature(html: string): Promise<string> {
+    const res = await fetch('/api/literature/sanitize-html', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html }),
+    })
+    const raw = await res.text()
+    if (!res.ok) {
+      let msg = raw
+      try {
+        const err = JSON.parse(raw) as { error?: string }
+        if (err.error) msg = err.error
+      } catch {
+        /* use raw */
+      }
+      throw new Error(msg || 'HTML sanitization failed')
+    }
+    const data = JSON.parse(raw) as { html: string }
+    return data.html
+  }
+
+  /**
+   * Extract plain text from a .docx on the server (`/api/literature/extract-docx`).
+   * Chain with `LiteratureParser.parseText(text, options, 'docx')`.
+   */
+  static async extractDocxText(file: File): Promise<{ text: string }> {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch('/api/literature/extract-docx', { method: 'POST', body: form })
+    const raw = await res.text()
+    if (!res.ok) {
+      let msg = raw
+      try {
+        const err = JSON.parse(raw) as { error?: string }
+        if (err.error) msg = err.error
+      } catch {
+        /* use raw */
+      }
+      throw new Error(msg || 'DOCX text extraction failed')
+    }
+    return JSON.parse(raw) as { text: string }
   }
 
   /**

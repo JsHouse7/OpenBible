@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Upload, FileText, Book, Settings, Download, Trash2, Eye, Plus, Check, X, AlertCircle, RefreshCw } from 'lucide-react'
+import { Upload, FileText, Book, Settings, Download, Trash2, Eye, Check, X, AlertCircle, RefreshCw, Globe } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/input'
@@ -13,8 +13,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
+import Link from 'next/link'
+import { useAuth } from '@/components/AuthProvider'
 import { LiteratureParser, LiteratureWork, ParseOptions } from '@/lib/literatureParser'
 import { LiteratureService } from '@/lib/literatureService'
+import { cn } from '@/lib/utils'
+import { buttonVariants } from '@/components/ui/Button'
 
 interface UploadStatus {
   status: 'idle' | 'uploading' | 'parsing' | 'success' | 'error'
@@ -40,6 +44,7 @@ interface LiteratureAdminProps {
 }
 
 export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
+  const { session } = useAuth()
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>({
     status: 'idle',
     progress: 0,
@@ -67,7 +72,35 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewWork, setPreviewWork] = useState<LiteratureWork | null>(null)
   const [editingWork, setEditingWork] = useState<ExistingWork | null>(null)
+  const [sourceUrl, setSourceUrl] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const applyMetadataOverrides = (
+    parsedWork: LiteratureWork,
+    opts?: { urlFallbackTitle?: string }
+  ): LiteratureWork => {
+    const yearParsed = ((): number | undefined => {
+      const raw = workMetadata.year.trim()
+      if (raw === '') return parsedWork.year
+      const y = parseInt(raw, 10)
+      return Number.isFinite(y) ? y : parsedWork.year
+    })()
+
+    const title =
+      workMetadata.title.trim() ||
+      parsedWork.title ||
+      opts?.urlFallbackTitle ||
+      'Untitled Work'
+
+    return {
+      ...parsedWork,
+      title,
+      author: workMetadata.author.trim() || parsedWork.author,
+      year: yearParsed,
+      difficulty: workMetadata.difficulty,
+      description: workMetadata.description.trim() || parsedWork.description,
+    }
+  }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -96,33 +129,54 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
       setUploadStatus({ status: 'parsing', progress: 40, message: 'Parsing content...' })
 
       switch (fileExtension) {
-        case 'txt':
+        case 'txt': {
           const textContent = await selectedFile.text()
           parsedWork = await LiteratureParser.parseText(textContent, parseOptions)
           break
+        }
+        case 'pdf': {
+          setUploadStatus({
+            status: 'parsing',
+            progress: 35,
+            message: 'Extracting text from PDF (server)...',
+          })
+          const { text: pdfText } = await LiteratureService.extractPdfText(selectedFile)
+          parsedWork = await LiteratureParser.parseText(pdfText, parseOptions, 'pdf')
+          break
+        }
+        case 'docx': {
+          setUploadStatus({
+            status: 'parsing',
+            progress: 35,
+            message: 'Extracting text from Word document...',
+          })
+          const { text: docxText } = await LiteratureService.extractDocxText(selectedFile)
+          parsedWork = await LiteratureParser.parseText(docxText, parseOptions, 'docx')
+          break
+        }
         case 'epub':
           parsedWork = await LiteratureParser.parseEpub(selectedFile)
           break
         case 'html':
         case 'htm':
-          const htmlContent = await selectedFile.text()
-          parsedWork = await LiteratureParser.parseHtml(htmlContent)
+        case 'xhtml': {
+          setUploadStatus({
+            status: 'parsing',
+            progress: 38,
+            message: 'Sanitizing HTML...',
+          })
+          const rawHtml = await selectedFile.text()
+          const htmlContent = await LiteratureService.sanitizeHtmlLiterature(rawHtml)
+          parsedWork = await LiteratureParser.parseHtml(htmlContent, parseOptions)
           break
+        }
         default:
           throw new Error(`Unsupported file format: ${fileExtension}`)
       }
 
       setUploadStatus({ status: 'parsing', progress: 70, message: 'Processing chapters...' })
 
-      // Apply user metadata overrides
-      const finalWork: LiteratureWork = {
-        ...parsedWork,
-        title: workMetadata.title || parsedWork.title,
-        author: workMetadata.author || parsedWork.author,
-        year: workMetadata.year ? parseInt(workMetadata.year) : parsedWork.year,
-        difficulty: workMetadata.difficulty,
-        description: workMetadata.description || parsedWork.description
-      }
+      const finalWork = applyMetadataOverrides(parsedWork)
 
       setPreviewWork(finalWork)
       setUploadStatus({ 
@@ -140,66 +194,100 @@ export function LiteratureAdmin({ onWorkAdded }: LiteratureAdminProps = {}) {
     }
   }
 
-  const loadExistingWorks = async () => {
-  try {
-    console.log('Loading existing works...')
-    const index = await LiteratureService.getLiteratureIndex()
-    const works: ExistingWork[] = index.works.map(work => ({
-      id: work.id,
-      title: work.title,
-      author: work.author,
-      difficulty: work.difficulty || 'intermediate',
-      wordCount: work.wordCount || 0,
-      chapters: work.chapterCount || 0,
-      lastModified: work.dateAdded || new Date().toISOString(),
-      description: work.description || '',
-      year: work.year || 0
-    }));
-    setExistingWorks(works);
-    console.log('Loaded', works.length, 'works');
-  } catch (error) {
-    console.error('Error loading works:', error);
+  const handleParseFromUrl = async () => {
+    const trimmed = sourceUrl.trim()
+    if (!trimmed) {
+      setUploadStatus({
+        status: 'error',
+        progress: 0,
+        message: 'Paste a page URL (https://…) first.',
+      })
+      return
+    }
+
+    setUploadStatus({ status: 'parsing', progress: 15, message: 'Fetching web page...' })
+
+    try {
+      const { html, finalUrl } = await LiteratureService.fetchHtmlFromUrl(trimmed)
+      setUploadStatus({ status: 'parsing', progress: 45, message: 'Parsing HTML...' })
+      const parsedWork = await LiteratureParser.parseHtml(html, parseOptions)
+
+      let urlFallbackTitle: string | undefined
+      try {
+        urlFallbackTitle = new URL(finalUrl).hostname.replace(/^www\./, '')
+      } catch {
+        urlFallbackTitle = undefined
+      }
+
+      setUploadStatus({ status: 'parsing', progress: 70, message: 'Processing chapters...' })
+      const finalWork = applyMetadataOverrides(parsedWork, { urlFallbackTitle })
+
+      setPreviewWork(finalWork)
+      setUploadStatus({
+        status: 'success',
+        progress: 100,
+        message: `Successfully parsed "${finalWork.title}" with ${finalWork.chapters.length} chapters`,
+        work: finalWork,
+      })
+    } catch (error) {
+      setUploadStatus({
+        status: 'error',
+        progress: 0,
+        message: `Error importing URL: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      })
+    }
   }
-};
 
-useEffect(() => {
-  loadExistingWorks();
-}, []);
+  const loadExistingWorks = async () => {
+    try {
+      const index = await LiteratureService.getLiteratureIndex()
+      const works: ExistingWork[] = index.works.map((work) => ({
+        id: work.id,
+        title: work.title,
+        author: work.author,
+        difficulty: work.difficulty || 'intermediate',
+        wordCount: work.wordCount || 0,
+        chapters: work.chapterCount || 0,
+        lastModified: work.dateAdded || new Date().toISOString(),
+        description: work.description || '',
+        year: work.year ?? 0,
+      }))
+      setExistingWorks(works)
+    } catch (error) {
+      console.error('Error loading works:', error)
+    }
+  }
 
-const handleSaveWork = async () => {
+  useEffect(() => {
+    loadExistingWorks()
+  }, [])
+
+  const handleSaveWork = async () => {
     if (!previewWork) return
+
+    if (!session?.access_token) {
+      setUploadStatus({
+        status: 'error',
+        progress: 0,
+        message: 'You must be signed in to save. Open the account page and sign in, then try again.',
+      })
+      return
+    }
 
     setUploadStatus({ status: 'uploading', progress: 80, message: 'Saving literature work...' })
 
     try {
-      console.log('Saving work:', JSON.stringify(previewWork, null, 2));
-      // Save using LiteratureService
       await LiteratureService.saveLiteratureWork(previewWork)
-
-      // Update existing works list
-      const newWork: ExistingWork = {
-        id: previewWork.id,
-        title: previewWork.title,
-        author: previewWork.author,
-        difficulty: previewWork.difficulty,
-        wordCount: previewWork.metadata?.wordCount || 0,
-        chapters: previewWork.chapters.length,
-        lastModified: new Date().toISOString(),
-        description: previewWork.description,
-        year: previewWork.year ?? 0,
-      }
-      setExistingWorks(prev => [...prev, newWork])
+      await loadExistingWorks()
 
       setUploadStatus({
         status: 'success',
         progress: 100,
-        message: `"${previewWork.title}" has been saved successfully!`
+        message: `"${previewWork.title}" has been saved successfully!`,
       })
 
-      // Call the callback to notify parent component
       onWorkAdded?.()
 
-      // Reset form
       setTimeout(() => {
         setSelectedFile(null)
         setPreviewWork(null)
@@ -211,7 +299,7 @@ const handleSaveWork = async () => {
       setUploadStatus({
         status: 'error',
         progress: 0,
-        message: `Error saving work: ${error instanceof Error ? error.message : 'Unknown error'}`
+        message: `Error saving work: ${error instanceof Error ? error.message : 'Unknown error'}`,
       })
     }
   }
@@ -264,6 +352,7 @@ const handleRefreshLibrary = () => {
   const resetUpload = () => {
     setSelectedFile(null)
     setPreviewWork(null)
+    setSourceUrl('')
     setUploadStatus({ status: 'idle', progress: 0, message: '' })
     setWorkMetadata({ title: '', author: '', year: '', difficulty: 'intermediate', description: '' })
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -274,7 +363,7 @@ const handleRefreshLibrary = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Literature Administration</h1>
         <p className="text-muted-foreground">
-          Upload and manage literature works. Supports TXT, EPUB, and HTML formats.
+          Upload TXT, PDF, DOCX, EPUB, HTML, or XHTML — or import a public web page. Scanned PDFs need OCR first.
         </p>
       </div>
 
@@ -295,7 +384,7 @@ const handleRefreshLibrary = () => {
                   File Upload
                 </CardTitle>
                 <CardDescription>
-                  Select a literature file to parse and add to the library
+                  Choose a file or fetch HTML from a URL (server-side; safe for public pages only).
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -303,7 +392,7 @@ const handleRefreshLibrary = () => {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".txt,.epub,.html,.htm"
+                    accept=".txt,.epub,.html,.htm,.pdf,.docx,.xhtml,application/pdf,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     onChange={handleFileSelect}
                     className="hidden"
                     id="file-upload"
@@ -314,11 +403,45 @@ const handleRefreshLibrary = () => {
                       <div>
                         <p className="font-medium">Click to upload file</p>
                         <p className="text-sm text-muted-foreground">
-                          Supports TXT, EPUB, HTML formats
+                          TXT, PDF, DOCX, EPUB, HTML, XHTML (PDF/DOCX processed on the server)
                         </p>
                       </div>
                     </div>
                   </label>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label htmlFor="page-url" className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Import from webpage
+                  </Label>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      id="page-url"
+                      type="url"
+                      inputMode="url"
+                      autoComplete="url"
+                      placeholder="https://example.org/chapter.html"
+                      value={sourceUrl}
+                      onChange={(e) => setSourceUrl(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="shrink-0"
+                      onClick={handleParseFromUrl}
+                      disabled={uploadStatus.status === 'parsing'}
+                    >
+                      Fetch &amp; parse
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Uses server fetch with SSRF protections (no localhost/private IPs). Many sites block bots;
+                    if fetch fails, save the page as HTML and upload the file instead.
+                  </p>
                 </div>
 
                 {selectedFile && (
@@ -584,9 +707,17 @@ const handleRefreshLibrary = () => {
                             <Button variant="outline" size="sm" onClick={() => handleEditWork(work)}>
                               Edit
                             </Button>
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            <Link
+                              href={`/literature/${work.id}`}
+                              className={cn(
+                                buttonVariants({ variant: 'outline', size: 'sm' }),
+                                'inline-flex items-center justify-center'
+                              )}
+                              title="Open reader"
+                            >
+                              <Eye className="h-4 w-4" aria-hidden />
+                              <span className="sr-only">Open reader</span>
+                            </Link>
                             <Button variant="outline" size="sm" onClick={() => handleDeleteWork(work.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>

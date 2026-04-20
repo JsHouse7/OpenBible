@@ -1,7 +1,14 @@
+# Local deploy upload (keeps `vercel deploy` under file limits)
 node_modules
-build
-dist
+.next
 .git
-.trae
-.log
-.figma
+.turbo
+.vercel
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+coverage
+playwright-report
+test-results
+.husky

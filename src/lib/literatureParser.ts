@@ -49,7 +49,14 @@ export class LiteratureParser {
     /†\d*/g
   ]
 
-  static async parseText(content: string, options: Partial<ParseOptions> = {}): Promise<LiteratureWork> {
+  /**
+   * @param sourceFormat Stored in metadata.originalFormat (`txt`, `pdf`, etc.).
+   */
+  static async parseText(
+    content: string,
+    options: Partial<ParseOptions> = {},
+    sourceFormat = 'txt'
+  ): Promise<LiteratureWork> {
     const defaultOptions: ParseOptions = {
       chapterDetection: 'auto',
       preserveFormatting: true,
@@ -59,7 +66,7 @@ export class LiteratureParser {
     
     const cleanContent = this.cleanText(content, finalOptions)
     const chapters = this.detectChapters(cleanContent, finalOptions)
-    const metadata = this.generateMetadata(content, 'txt')
+    const metadata = this.generateMetadata(content, sourceFormat)
 
     return {
       id: this.generateId(),
@@ -111,13 +118,10 @@ export class LiteratureParser {
     const parser = new DOMParser()
     const doc = parser.parseFromString(content, 'text/html')
     
-    // Extract metadata from HTML
-    const title = doc.querySelector('title')?.textContent || 
-                  doc.querySelector('h1')?.textContent || 'Untitled Work'
-    const author = doc.querySelector('meta[name="author"]')?.getAttribute('content') || 'Unknown Author'
+    const title = this.extractHtmlTitle(doc)
+    const author = this.extractHtmlAuthor(doc)
+    const bodyText = this.getPrimaryHtmlText(doc) || doc.body?.textContent || content
     
-    // Extract content and detect chapters
-    const bodyText = doc.body?.textContent || content
     const chapters = this.detectChapters(bodyText, finalOptions)
     const metadata = this.generateMetadata(bodyText, 'html')
 
@@ -130,6 +134,57 @@ export class LiteratureParser {
       chapters,
       metadata
     }
+  }
+
+  private static extractHtmlTitle(doc: Document): string {
+    const og = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim()
+    if (og) return og
+    const tw = doc.querySelector('meta[name="twitter:title"]')?.getAttribute('content')?.trim()
+    if (tw) return tw
+    const h1 = doc.querySelector('h1')?.textContent?.trim()
+    if (h1 && h1.length < 300) return h1
+    const t = doc.querySelector('title')?.textContent?.trim()
+    return t || 'Untitled Work'
+  }
+
+  private static extractHtmlAuthor(doc: Document): string {
+    const selectors = [
+      'meta[name="author"]',
+      'meta[property="article:author"]',
+      'meta[name="DC.creator"]',
+      'meta[property="book:author"]',
+      '[itemprop="author"]',
+    ]
+    for (const sel of selectors) {
+      const el = doc.querySelector(sel)
+      const fromMeta = el?.getAttribute('content')?.trim()
+      if (fromMeta) return fromMeta
+      const text = el?.textContent?.trim()
+      if (text && text.length < 200) return text
+    }
+    return 'Unknown Author'
+  }
+
+  /** Prefer article/main/common article wrappers so nav/chrome does not dominate chapter detection. */
+  private static getPrimaryHtmlText(doc: Document): string {
+    const selectors = [
+      'article',
+      'main',
+      '[role="main"]',
+      '.entry-content',
+      '.post-content',
+      '.article-body',
+      '.post-body',
+      '#article-body',
+      '#content',
+      '#main-content',
+    ]
+    for (const sel of selectors) {
+      const el = doc.querySelector(sel)
+      const t = el?.textContent?.trim()
+      if (t && t.length > 400) return t
+    }
+    return doc.body?.textContent?.trim() || ''
   }
 
   private static cleanText(content: string, options: ParseOptions): string {
