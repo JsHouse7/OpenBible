@@ -17,6 +17,7 @@ interface BibleVersionContextType {
   selectedVersion: BibleVersion
   availableVersions: BibleVersion[]
   setSelectedVersion: (version: BibleVersion) => void
+  resetToDefaultVersion: () => Promise<void>
   isLoading: boolean
 }
 
@@ -178,10 +179,15 @@ export function BibleVersionProvider({ children }: { children: React.ReactNode }
     }
   }
 
+  const resetToDefaultVersion = async () => {
+    await setSelectedVersion(fallbackVersion)
+  }
+
   const value: BibleVersionContextType = {
     selectedVersion,
     availableVersions,
     setSelectedVersion,
+    resetToDefaultVersion,
     isLoading
   }
 

@@ -74,9 +74,10 @@ class UserPreferencesService {
 
       if (!response.ok) {
         if (response.status === 401) {
-          const empty = {} as UserPreferences
-          this.cache = empty
-          return empty
+          // Signed-out users: load persisted preferences from localStorage
+          const local = this.getLocalStoragePreferences()
+          this.cache = local
+          return local
         }
         throw new Error(`Failed to fetch preferences: ${response.statusText}`)
       }
@@ -167,8 +168,8 @@ class UserPreferencesService {
     this.cache = null
   }
 
-  // Fallback methods for localStorage
-  private getLocalStoragePreferences(): UserPreferences {
+  // Fallback methods for localStorage (also used for unauthenticated GET)
+  getLocalStoragePreferences(): UserPreferences {
     if (typeof window === 'undefined') return {} as UserPreferences
 
     try {

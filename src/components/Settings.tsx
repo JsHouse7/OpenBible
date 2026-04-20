@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type ChangeEvent } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Switch } from '@/components/ui/switch'
@@ -13,9 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { useTheme } from './ThemeProvider'
 import { 
   Palette,
-  Type,
   Volume2,
-  Eye,
   Moon,
   Sun,
   Monitor,
@@ -26,25 +24,54 @@ import {
   Database,
   Download,
   Upload,
-  Trash2,
   RefreshCw,
   Sparkles,
   Zap,
   Check,
-  Loader2
+  Loader2,
+  AlertCircle
 } from 'lucide-react'
 import { useAnimations } from './AnimationProvider'
 import { useBibleVersion } from './BibleVersionProvider'
 import { useUserPreferences } from './UserPreferencesProvider'
 import { useFonts } from '@/hooks/useFonts'
+import { userPreferencesService } from '@/lib/userPreferencesService'
+
+function formatBytes(n: number) {
+  if (n < 1024) return `${Math.round(n)} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/** John 3:16 sample lines for translations shipped in the app */
+const JOHN_316_PREVIEW: Record<string, string> = {
+  kjv: 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.',
+  esv: 'For God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life.',
+  niv: 'For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.',
+  web: 'For God so loved the world that he gave his one and only Son, that whoever believes in him should not perish, but have eternal life.',
+  nasb: 'For God so loved the world, that He gave His only begotten Son, that whoever believes in Him shall not perish, but have eternal life.',
+  nkjv: 'For God so loved the world that He gave His only begotten Son, that whoever believes in Him should not perish but have everlasting life.',
+  nlt: 'For this is how God loved the world: He gave his one and only Son, so that everyone who believes in him will not perish but have eternal life.',
+  asv: 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth on him should not perish, but have eternal life.',
+}
+const DEFAULT_JOHN_316 =
+  'For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.'
 
 const Settings = () => {
   const { theme, setTheme } = useTheme()
-  const { preferences: animationPreferences, updatePreferences: updateAnimationPreferences, getTransitionClass, getDuration, isAnimationEnabled } = useAnimations()
-  const { selectedVersion, availableVersions, setSelectedVersion } = useBibleVersion()
+  const {
+    preferences: animationPreferences,
+    updatePreferences: updateAnimationPreferences,
+    getTransitionClass,
+    getDuration,
+    resetToDefaults: resetAnimationPreferences,
+  } = useAnimations()
+  const { selectedVersion, availableVersions, setSelectedVersion, resetToDefaultVersion } = useBibleVersion()
   const { preferences, updatePreferences, resetPreferences, saveStatus } = useUserPreferences()
   const { fontOptions, getBibleTextClasses } = useFonts()
+  const importFileRef = useRef<HTMLInputElement>(null)
   const [scrollProgress, setScrollProgress] = useState(0)
+  const [storageInfo, setStorageInfo] = useState<{ used?: number; quota?: number; localKb?: number }>({})
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   
   // Extract values from preferences for easier access
@@ -86,28 +113,126 @@ const Settings = () => {
     }
   }, [])
 
-
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        if (typeof navigator !== 'undefined' && navigator.storage?.estimate) {
+          const est = await navigator.storage.estimate()
+          if (!cancelled) {
+            setStorageInfo((s) => ({ ...s, used: est.usage, quota: est.quota }))
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      let bytes = 0
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (!k) continue
+          bytes += k.length + (localStorage.getItem(k)?.length ?? 0)
+        }
+      } catch {
+        /* ignore */
+      }
+      if (!cancelled) setStorageInfo((s) => ({ ...s, localKb: bytes / 1024 }))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const readingModeOptions = [
     { value: 'standard', label: 'Standard' },
     { value: 'focus', label: 'Focus Mode' },
     { value: 'study', label: 'Study Mode' },
-    { value: 'meditation', label: 'Meditation Mode' }
+    { value: 'meditation', label: 'Meditation Mode' },
   ]
 
-  const handleExportData = () => {
-    // Simulate data export
-    console.log('Exporting user data...')
+  const handleExportData = async () => {
+    try {
+      userPreferencesService.clearCache()
+      const prefs = await userPreferencesService.getPreferences()
+      const animationPrefs = await userPreferencesService.getPreference('animationPreferences', null)
+      const bibleVersion = await userPreferencesService.getPreference('bibleVersion', 'kjv')
+      const themePref = await userPreferencesService.getPreference('theme', 'system')
+      let lastReadingPosition: { book: string; chapter: number } | null = null
+      try {
+        const raw = localStorage.getItem('openbible-last-position')
+        if (raw) lastReadingPosition = JSON.parse(raw) as { book: string; chapter: number }
+      } catch {
+        /* ignore */
+      }
+      const payload = {
+        exportVersion: 1 as const,
+        exportedAt: new Date().toISOString(),
+        preferences: prefs,
+        animationPreferences: animationPrefs,
+        bibleVersion: bibleVersion,
+        theme: themePref,
+        lastReadingPosition,
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const a = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      a.href = url
+      a.download = `openbible-backup-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error(e)
+    }
   }
 
-  const handleImportData = () => {
-    // Simulate data import
-    console.log('Importing user data...')
+  const handleImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text) as {
+        preferences?: Record<string, unknown>
+        animationPreferences?: unknown
+        bibleVersion?: string
+        theme?: string
+        lastReadingPosition?: { book: string; chapter: number }
+      }
+      if (!data.preferences || typeof data.preferences !== 'object') {
+        throw new Error('Invalid backup file: missing preferences')
+      }
+      await userPreferencesService.savePreferences(data.preferences as Parameters<typeof userPreferencesService.savePreferences>[0])
+      if (data.animationPreferences !== undefined && data.animationPreferences !== null && typeof data.animationPreferences === 'object') {
+        await userPreferencesService.setPreference('animationPreferences', data.animationPreferences)
+      }
+      if (data.bibleVersion) {
+        await userPreferencesService.setPreference('bibleVersion', data.bibleVersion)
+      }
+      if (data.theme === 'light' || data.theme === 'dark' || data.theme === 'system') {
+        setTheme(data.theme)
+      }
+      if (
+        data.lastReadingPosition &&
+        typeof data.lastReadingPosition.book === 'string' &&
+        typeof data.lastReadingPosition.chapter === 'number'
+      ) {
+        localStorage.setItem('openbible-last-position', JSON.stringify(data.lastReadingPosition))
+      }
+      userPreferencesService.clearCache()
+      window.location.reload()
+    } catch (err) {
+      console.error(err)
+      window.alert('Could not import this file. Use a backup exported from OpenBible.')
+    }
   }
 
-  const handleResetSettings = () => {
-    resetPreferences()
+  const handleResetSettings = async () => {
+    if (!window.confirm('Reset all settings to defaults? This cannot be undone.')) return
+    await resetPreferences()
     setTheme('system')
+    resetAnimationPreferences()
+    await resetToDefaultVersion()
+    userPreferencesService.clearCache()
   }
 
   return (
@@ -134,6 +259,12 @@ const Settings = () => {
                 <>
                   <Check className="h-3 w-3 text-green-600" />
                   <span className="text-xs text-green-600">Saved</span>
+                </>
+              )}
+              {saveStatus === 'error' && (
+                <>
+                  <AlertCircle className="h-3 w-3 text-destructive" />
+                  <span className="text-xs text-destructive">Save failed</span>
                 </>
               )}
             </div>
@@ -238,6 +369,30 @@ const Settings = () => {
 
               <Separator />
 
+              <div className="space-y-2">
+                <Label>Reading layout</Label>
+                <p className="text-xs text-muted-foreground">
+                  Adjusts column width and emphasis in the Bible reader
+                </p>
+                <Select
+                  value={readingMode}
+                  onValueChange={(value) => updatePreferences({ readingMode: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {readingModeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator />
+
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Font Family</Label>
@@ -321,36 +476,44 @@ const Settings = () => {
                   </p>
                 </div>
                 <Switch
-                  checked={animationPreferences.enabled}
-                  onCheckedChange={(enabled) => updateAnimationPreferences({ enabled })}
+                  checked={animationPreferences.enableAnimations}
+                  onCheckedChange={(enableAnimations) =>
+                    updateAnimationPreferences({ enableAnimations, enabled: enableAnimations })
+                  }
                 />
               </div>
 
-              {animationPreferences.enabled && !animationPreferences.reducedMotion && (
+              {animationPreferences.enableAnimations && !animationPreferences.reducedMotion && (
                 <div className="space-y-6 pl-4 border-l-2 border-muted">
                   <div className="space-y-2">
                     <Label>Animation Speed</Label>
                     <div className="grid grid-cols-3 gap-2">
                       <Button
-                        variant={animationPreferences.speed === 'slow' ? 'default' : 'outline'}
+                        variant={animationPreferences.animationSpeed === 'slow' ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => updateAnimationPreferences({ speed: 'slow' })}
+                        onClick={() =>
+                          updateAnimationPreferences({ animationSpeed: 'slow', speed: 'slow' })
+                        }
                         className="justify-center"
                       >
                         Slow
                       </Button>
                       <Button
-                        variant={animationPreferences.speed === 'normal' ? 'default' : 'outline'}
+                        variant={animationPreferences.animationSpeed === 'normal' ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => updateAnimationPreferences({ speed: 'normal' })}
+                        onClick={() =>
+                          updateAnimationPreferences({ animationSpeed: 'normal', speed: 'normal' })
+                        }
                         className="justify-center"
                       >
                         Normal
                       </Button>
                       <Button
-                        variant={animationPreferences.speed === 'fast' ? 'default' : 'outline'}
+                        variant={animationPreferences.animationSpeed === 'fast' ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => updateAnimationPreferences({ speed: 'fast' })}
+                        onClick={() =>
+                          updateAnimationPreferences({ animationSpeed: 'fast', speed: 'fast' })
+                        }
                         className="justify-center"
                       >
                         Fast
@@ -590,12 +753,28 @@ const Settings = () => {
                       <div className="space-y-0.5">
                         <Label className="text-sm">Auto-save Progress</Label>
                         <p className="text-xs text-muted-foreground">
-                          Automatically save reading progress
+                          Remember last chapter when you leave the Bible reader
                         </p>
                       </div>
                       <Switch
                         checked={autoSave}
                         onCheckedChange={(checked) => updatePreferences({ autoSave: checked })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm flex items-center gap-2">
+                          <Volume2 className="h-3.5 w-3.5" />
+                          Audio features
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Reserved for future verse audio playback
+                        </p>
+                      </div>
+                      <Switch
+                        checked={audioEnabled}
+                        onCheckedChange={(checked) => updatePreferences({ audioEnabled: checked })}
                       />
                     </div>
                   </div>
@@ -615,17 +794,7 @@ const Settings = () => {
                   <div className="flex items-start gap-2">
                     {verseNumbers && <span className="text-blue-600 font-medium text-sm">16</span>}
                     <span className="flex-1">
-                      {selectedVersion.id === 'kjv' && "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life."}
-                      {selectedVersion.id === 'niv' && "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life."}
-                      {selectedVersion.id === 'esv' && "For God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life."}
-                      {selectedVersion.id === 'nlt' && "For this is how God loved the world: He gave his one and only Son, so that everyone who believes in him will not perish but have eternal life."}
-                      {selectedVersion.id === 'nasb' && "For God so loved the world, that He gave His only begotten Son, that whoever believes in Him shall not perish, but have eternal life."}
-                      {selectedVersion.id === 'nkjv' && "For God so loved the world that He gave His only begotten Son, that whoever believes in Him should not perish but have everlasting life."}
-                      {selectedVersion.id === 'csb' && "For God loved the world in this way: He gave his one and only Son, so that everyone who believes in him will not perish but have eternal life."}
-                      {selectedVersion.id === 'msg' && "This is how much God loved the world: He gave his Son, his one and only Son. And this is why: so that no one need be destroyed; by believing in him, anyone can have a whole and lasting life."}
-                      {selectedVersion.id === 'amp' && "For God so [greatly] loved and dearly prized the world, that He [even] gave His [One and] only begotten Son, so that whoever believes and trusts in Him [as Savior] shall not perish, but have eternal life."}
-                      {selectedVersion.id === 'nrsv' && "For God so loved the world that he gave his only Son, so that everyone who believes in him may not perish but may have eternal life."}
-                      {!['kjv', 'niv', 'esv', 'nlt', 'nasb', 'nkjv', 'csb', 'msg', 'amp', 'nrsv'].includes(selectedVersion.id) && "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life."}
+                      {JOHN_316_PREVIEW[selectedVersion.id] ?? DEFAULT_JOHN_316}
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground italic">John 3:16 ({selectedVersion.abbreviation})</p>
@@ -656,7 +825,17 @@ const Settings = () => {
                 </div>
                 <Switch
                   checked={notifications}
-                  onCheckedChange={(checked) => updatePreferences({ notifications: checked })}
+                  onCheckedChange={async (checked) => {
+                    updatePreferences({ notifications: checked })
+                    if (
+                      checked &&
+                      typeof window !== 'undefined' &&
+                      'Notification' in window &&
+                      Notification.permission === 'default'
+                    ) {
+                      await Notification.requestPermission()
+                    }
+                  }}
                 />
               </div>
 
@@ -721,7 +900,13 @@ const Settings = () => {
                   </div>
                   <Switch 
                     checked={analyticsCollection}
-                    onCheckedChange={(checked) => updatePreferences({ analyticsCollection: checked })}
+                    onCheckedChange={(checked) =>
+                      updatePreferences({
+                        analyticsCollection: checked,
+                        analyticsVisible: checked,
+                        allowDataCollection: checked,
+                      })
+                    }
                   />
                 </div>
 
@@ -747,7 +932,12 @@ const Settings = () => {
                   </div>
                   <Switch 
                     checked={publicReadingStats}
-                    onCheckedChange={(checked) => updatePreferences({ publicReadingStats: checked })}
+                    onCheckedChange={(checked) =>
+                      updatePreferences({
+                        publicReadingStats: checked,
+                        showReadingStats: checked,
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -755,11 +945,12 @@ const Settings = () => {
               <Separator />
 
               <div className="space-y-2">
-                <Label>Data Retention</Label>
+                <Label>Data storage</Label>
                 <p className="text-sm text-muted-foreground">
-                  Your notes, highlights, and bookmarks are stored locally and synced securely.
+                  When you sign in, notes and highlights sync with your account. Preferences can be stored
+                  locally when you use the app without an account.
                 </p>
-                <Badge variant="secondary">End-to-end encrypted</Badge>
+                <Badge variant="secondary">Encrypted in transit (HTTPS)</Badge>
               </div>
             </CardContent>
           </Card>
@@ -777,52 +968,77 @@ const Settings = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <input
+                ref={importFileRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={handleImportFile}
+              />
               <div className="grid gap-4 md:grid-cols-2">
-                <Button onClick={handleExportData} variant="outline" className="justify-start">
+                <Button
+                  type="button"
+                  onClick={() => void handleExportData()}
+                  variant="outline"
+                  className="justify-start"
+                >
                   <Download className="mr-2 h-4 w-4" />
-                  Export Data
+                  Export settings
                 </Button>
-                <Button onClick={handleImportData} variant="outline" className="justify-start">
+                <Button
+                  type="button"
+                  onClick={() => importFileRef.current?.click()}
+                  variant="outline"
+                  className="justify-start"
+                >
                   <Upload className="mr-2 h-4 w-4" />
-                  Import Data
+                  Import settings
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Exports preferences, theme, animation settings, translation choice, and last reading position
+                stored in this browser.
+              </p>
 
               <Separator />
 
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-medium">Storage Usage</h4>
+                  <h4 className="font-medium">Browser storage</h4>
                   <p className="text-sm text-muted-foreground mb-2">
-                    Your local data usage
+                    Approximate space used on this device for this site
                   </p>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Notes & Highlights</span>
-                      <span>2.3 MB</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Reading Progress</span>
-                      <span>0.8 MB</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Literature Library</span>
-                      <span>15.2 MB</span>
-                    </div>
+                  <div className="space-y-2 text-sm">
+                    {storageInfo.used != null && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Site storage (estimate)</span>
+                        <span>
+                          {formatBytes(storageInfo.used)}
+                          {storageInfo.quota != null ? ` / ${formatBytes(storageInfo.quota)}` : ''}
+                        </span>
+                      </div>
+                    )}
+                    {storageInfo.localKb != null && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">localStorage (preferences cache)</span>
+                        <span>{storageInfo.localKb < 0.1 ? '< 0.1 KB' : `${storageInfo.localKb.toFixed(1)} KB`}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="pt-4 border-t">
-                  <Button 
-                    onClick={handleResetSettings} 
-                    variant="outline" 
-                    className="justify-start text-red-600 hover:text-red-700"
+                  <Button
+                    type="button"
+                    onClick={() => void handleResetSettings()}
+                    variant="outline"
+                    className="justify-start text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
-                    Reset All Settings
+                    Reset all settings
                   </Button>
                   <p className="text-sm text-muted-foreground mt-2">
-                    This will reset all your preferences to default values
+                    Resets app preferences, theme, animations, and Bible translation to defaults.
                   </p>
                 </div>
               </div>

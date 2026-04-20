@@ -62,8 +62,8 @@ const defaultPreferences: UserPreferences = {
   homePage: 'dashboard',
   fontSize: 16,
   lineHeight: 1.6,
-  fontFamily: 'Inter',
-  readingMode: 'comfortable',
+  fontFamily: 'inter',
+  readingMode: 'standard',
   bibleVersion: 'ESV',
   verseNumbersVisible: true,
   crossReferencesVisible: false,
@@ -107,10 +107,11 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-  // Load preferences from database on mount, but only when user is authenticated
+  // Load preferences: DB when signed in; localStorage / API 401 path when signed out
   useEffect(() => {
     const loadPreferences = async () => {
       if (!authLoading) {
+        userPreferencesService.clearCache()
         if (user) {
           try {
             await userPreferencesService.migrateFromLocalStorage()
@@ -119,9 +120,16 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
             setPreferences(mergedPreferences)
           } catch (error) {
             console.error('Failed to load preferences, using defaults:', error)
+            userPreferencesService.clearCache()
+            const fallback = await userPreferencesService.getPreferences()
+            setPreferences({ ...defaultPreferences, ...fallback })
+          }
+        } else {
+          try {
             const localPreferences = await userPreferencesService.getPreferences()
-            const mergedPreferences = { ...defaultPreferences, ...localPreferences }
-            setPreferences(mergedPreferences)
+            setPreferences({ ...defaultPreferences, ...localPreferences })
+          } catch (error) {
+            console.error('Failed to load local preferences:', error)
           }
         }
         setIsLoaded(true)

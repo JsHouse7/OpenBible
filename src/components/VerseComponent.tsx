@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
 import { useAnimations } from "@/components/AnimationProvider"
 import { useFonts } from "@/hooks/useFonts"
+import { useUserPreferences } from "@/components/UserPreferencesProvider"
 import type { BibleVerse } from "@/data/completeBible"
 
 interface Note {
@@ -47,6 +48,9 @@ export function VerseComponent({
   const [showColorPicker, setShowColorPicker] = useState(false)
   const { getTransitionClass, isAnimationEnabled } = useAnimations()
   const { getBibleTextClasses, getUITextClasses } = useFonts()
+  const { preferences } = useUserPreferences()
+  const showVerseNumbers = preferences.verseNumbers
+  const highlightAllowed = preferences.highlightEnabled
 
   const highlightColors = [
     { name: 'Yellow', value: 'yellow', bg: 'bg-yellow-200', text: 'text-yellow-800' },
@@ -125,7 +129,14 @@ export function VerseComponent({
         }}
         aria-label={`Verse ${verse.verse}: ${verse.text}`}
       >
-        <span className={cn("flex-shrink-0 font-medium text-muted-foreground mt-1 min-w-[24px]", getUITextClasses())}>
+        <span
+          className={cn(
+            "flex-shrink-0 font-medium text-muted-foreground mt-1 min-w-[24px]",
+            getUITextClasses(),
+            !showVerseNumbers && "hidden"
+          )}
+          aria-hidden={!showVerseNumbers}
+        >
           {verse.verse}
         </span>
 
@@ -167,6 +178,7 @@ export function VerseComponent({
           </Button>
 
           <div className="relative">
+            {(highlightAllowed || isHighlighted) && (
             <Button
               variant="ghost"
               size="sm"
@@ -185,9 +197,10 @@ export function VerseComponent({
               <Highlighter className="h-4 w-4" />
               {isHighlighted ? "Remove Highlight" : "Highlight"}
             </Button>
+            )}
 
             {/* Color Picker */}
-            {showColorPicker && !isHighlighted && (
+            {highlightAllowed && showColorPicker && !isHighlighted && (
               <div className={cn(
                 "absolute top-full left-0 mt-1 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10",
                 isAnimationEnabled('modal') && "animate-in slide-in-from-top-2 fade-in-0 duration-200"

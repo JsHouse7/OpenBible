@@ -20,6 +20,7 @@ type AnimationPreferences = {
 type AnimationContextType = {
   preferences: AnimationPreferences
   updatePreferences: (preferences: Partial<AnimationPreferences>) => void
+  resetToDefaults: () => void
   getTransitionClass: (type: 'default' | 'fast' | 'slow', animationType?: 'page' | 'verse' | 'button' | 'modal' | 'loading' | 'scroll') => string
   getDuration: (type: 'short' | 'medium' | 'long') => number
   isAnimationEnabled: (animationType: 'page' | 'verse' | 'button' | 'modal' | 'loading' | 'scroll') => boolean
@@ -41,6 +42,21 @@ const defaultPreferences: AnimationPreferences = {
   scrollAnimations: true
 }
 
+function normalizeAnimationPreferences(
+  raw: Partial<AnimationPreferences> | null | undefined
+): AnimationPreferences {
+  const base = { ...defaultPreferences, ...raw }
+  const enable = raw?.enableAnimations ?? raw?.enabled ?? base.enableAnimations
+  const speed = raw?.animationSpeed ?? (raw?.speed as AnimationPreferences['animationSpeed']) ?? base.animationSpeed
+  return {
+    ...base,
+    enableAnimations: enable,
+    enabled: enable,
+    animationSpeed: speed,
+    speed,
+  }
+}
+
 export function AnimationProvider({ children }: { children: React.ReactNode }) {
   const [preferences, setPreferences] = useState<AnimationPreferences>(defaultPreferences)
   const [isLoaded, setIsLoaded] = useState(false)
@@ -59,16 +75,19 @@ export function AnimationProvider({ children }: { children: React.ReactNode }) {
         }
 
         // Load from database
-        const savedPrefs = await userPreferencesService.getPreference<AnimationPreferences>('animationPreferences', defaultPreferences)
-        setPreferences(savedPrefs)
+        const savedPrefs = await userPreferencesService.getPreference<AnimationPreferences>(
+          'animationPreferences',
+          defaultPreferences
+        )
+        setPreferences(normalizeAnimationPreferences(savedPrefs))
       } catch (error) {
         console.error('Error loading animation preferences:', error)
         // Fallback to localStorage
         const localPrefs = localStorage?.getItem('animation-preferences')
         if (localPrefs) {
           try {
-            const parsed = JSON.parse(localPrefs)
-            setPreferences(prev => ({ ...prev, ...parsed }))
+            const parsed = JSON.parse(localPrefs) as Partial<AnimationPreferences>
+            setPreferences(normalizeAnimationPreferences(parsed))
           } catch (parseError) {
             console.error('Failed to parse animation preferences:', parseError)
           }
@@ -116,7 +135,30 @@ export function AnimationProvider({ children }: { children: React.ReactNode }) {
   }, [preferences, isLoaded])
 
   const updatePreferences = (newPreferences: Partial<AnimationPreferences>) => {
-    setPreferences(prev => ({ ...prev, ...newPreferences }))
+    setPreferences((prev) => {
+      const merged = { ...prev, ...newPreferences }
+      if (newPreferences.enableAnimations !== undefined) {
+        merged.enabled = newPreferences.enableAnimations
+      }
+      if (newPreferences.enabled !== undefined) {
+        merged.enableAnimations = newPreferences.enabled
+      }
+      if (newPreferences.animationSpeed !== undefined) {
+        merged.speed = newPreferences.animationSpeed
+      }
+      if (newPreferences.speed !== undefined) {
+        merged.animationSpeed = newPreferences.speed as AnimationPreferences['animationSpeed']
+      }
+      return merged
+    })
+  }
+
+  const resetToDefaults = () => {
+    const mq = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null
+    setPreferences({
+      ...defaultPreferences,
+      reducedMotion: mq?.matches ?? false,
+    })
   }
 
   const getTransitionClass = (type: 'default' | 'fast' | 'slow', animationType?: 'page' | 'verse' | 'button' | 'modal' | 'loading' | 'scroll') => {
@@ -172,12 +214,15 @@ export function AnimationProvider({ children }: { children: React.ReactNode }) {
       long: { slow: 800, normal: 500, fast: 300 }
     }
 
-    return baseDurations[type][preferences.animationSpeed]
+    const spd = preferences.animationSpeed
+    const key = spd === 'slow' || spd === 'fast' || spd === 'normal' ? spd : 'normal'
+    return baseDurations[type][key]
   }
 
   const value: AnimationContextType = {
     preferences,
     updatePreferences,
+    resetToDefaults,
     getTransitionClass,
     getDuration,
     isAnimationEnabled

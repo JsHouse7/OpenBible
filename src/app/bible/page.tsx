@@ -6,6 +6,7 @@ import { BibleReader } from '@/components/BibleReader'
 import { BookSelector } from '@/components/BookSelector'
 import { ChapterSelector } from '@/components/ChapterSelector'
 import { useAuth } from '@/components/AuthProvider'
+import { useUserPreferences } from '@/components/UserPreferencesProvider'
 import { progressService } from '@/lib/database'
 import { parseBibleUrlSearchParams, buildBibleSearchParams } from '@/lib/bibleUrl'
 
@@ -41,6 +42,23 @@ function BiblePageInner() {
   const [showBookSelector, setShowBookSelector] = useState(false)
   const [showChapterSelector, setShowChapterSelector] = useState(false)
   const { user } = useAuth()
+  const { preferences } = useUserPreferences()
+
+  const persistReadingProgress = useCallback(
+    (book: string, chapter: number) => {
+      if (!preferences.autoSave) return
+      if (user) {
+        progressService.updateProgress(user.id, book, chapter).catch((error) => console.error('Error updating reading progress:', error))
+      } else {
+        try {
+          localStorage.setItem('openbible-last-position', JSON.stringify({ book, chapter }))
+        } catch (error) {
+          console.error('Error saving position to localStorage:', error)
+        }
+      }
+    },
+    [user, preferences.autoSave]
+  )
 
   const replaceBibleUrl = useCallback(
     (book: string, chapter: number, verse?: number) => {
@@ -64,15 +82,7 @@ function BiblePageInner() {
     setFocusVerse(undefined)
     replaceBibleUrl(book, 1)
 
-    if (user) {
-      progressService.updateProgress(user.id, book, 1).catch((error) => console.error('Error updating reading progress:', error))
-    } else {
-      try {
-        localStorage.setItem('openbible-last-position', JSON.stringify({ book, chapter: 1 }))
-      } catch (error) {
-        console.error('Error saving position to localStorage:', error)
-      }
-    }
+    persistReadingProgress(book, 1)
   }
 
   const handleChapterSelect = (chapter: number) => {
@@ -80,15 +90,7 @@ function BiblePageInner() {
     setFocusVerse(undefined)
     replaceBibleUrl(currentBook, chapter)
 
-    if (user) {
-      progressService.updateProgress(user.id, currentBook, chapter).catch((error) => console.error('Error updating reading progress:', error))
-    } else {
-      try {
-        localStorage.setItem('openbible-last-position', JSON.stringify({ book: currentBook, chapter }))
-      } catch (error) {
-        console.error('Error saving position to localStorage:', error)
-      }
-    }
+    persistReadingProgress(currentBook, chapter)
   }
 
   useEffect(() => {
@@ -167,15 +169,7 @@ function BiblePageInner() {
     setFocusVerse(undefined)
     replaceBibleUrl(book, chapter)
 
-    if (user) {
-      progressService.updateProgress(user.id, book, chapter).catch((error) => console.error('Error updating reading progress:', error))
-    } else {
-      try {
-        localStorage.setItem('openbible-last-position', JSON.stringify({ book, chapter }))
-      } catch (error) {
-        console.error('Error saving position to localStorage:', error)
-      }
-    }
+    persistReadingProgress(book, chapter)
   }
 
   const handleFocusVerseConsumed = useCallback(() => {
