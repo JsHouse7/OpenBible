@@ -32,7 +32,10 @@ export function ScriptureHeader({
   const { getUITextClasses } = useFonts()
   
   return (
-    <div className="sticky top-16 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+    <div
+      className="sticky top-16 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b"
+      data-testid="bible-scripture-header"
+    >
       <div className="max-w-4xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -42,6 +45,7 @@ export function ScriptureHeader({
               onClick={onPreviousChapter}
               disabled={!canGoPrevious}
               className="h-8 px-3"
+              data-testid="bible-chapter-prev"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -74,6 +78,7 @@ export function ScriptureHeader({
               onClick={onNextChapter}
               disabled={!canGoNext}
               className="h-8 px-3"
+              data-testid="bible-chapter-next"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>

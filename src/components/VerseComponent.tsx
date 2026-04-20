@@ -102,6 +102,8 @@ export function VerseComponent({
   return (
     <div className="group">
       <div
+        data-bible-verse={verse.verse}
+        data-testid={`bible-verse-${verse.verse}`}
         className={cn(
           "flex items-start gap-3 p-3 rounded-lg cursor-pointer",
           getTransitionClass('default', 'button'),

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { VerseComponent } from '@/components/VerseComponent'
@@ -29,12 +29,22 @@ interface Note {
 interface BibleReaderProps {
   book: string
   chapter: number
+  focusVerse?: number
+  onFocusVerseHandled?: () => void
   onNavigate?: (book: string, chapter: number) => void
   onBookClick?: () => void
   onChapterClick?: () => void
 }
 
-export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterClick }: BibleReaderProps) {
+export function BibleReader({
+  book,
+  chapter,
+  focusVerse,
+  onFocusVerseHandled,
+  onNavigate,
+  onBookClick,
+  onChapterClick,
+}: BibleReaderProps) {
   const [verses, setVerses] = useState<BibleVerse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +58,7 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
   const [highlightColors, setHighlightColors] = useState<Map<string, string>>(new Map())
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
   const [noteVerse, setNoteVerse] = useState<BibleVerse | null>(null)
+  const focusHandledKeyRef = useRef<string | null>(null)
 
   // Get current book info
   const currentBookInfo = COMPLETE_BIBLE_BOOKS.find(b => b.name === book)
@@ -71,6 +82,39 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
 
     loadVerses()
   }, [book, chapter, selectedVersion.abbreviation])
+
+  useEffect(() => {
+    focusHandledKeyRef.current = null
+  }, [book, chapter, selectedVersion.abbreviation])
+
+  useEffect(() => {
+    if (focusVerse === undefined || loading || verses.length === 0) {
+      return
+    }
+
+    const key = `${book}-${chapter}-${focusVerse}-${selectedVersion.abbreviation}`
+    if (focusHandledKeyRef.current === key) {
+      return
+    }
+
+    const hasVerse = verses.some((v) => v.verse === focusVerse)
+    if (!hasVerse) {
+      focusHandledKeyRef.current = key
+      onFocusVerseHandled?.()
+      return
+    }
+
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-bible-verse="${focusVerse}"]`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const match = verses.find((v) => v.verse === focusVerse)
+      if (match) {
+        setSelectedVerse(match)
+      }
+      focusHandledKeyRef.current = key
+      onFocusVerseHandled?.()
+    })
+  }, [book, chapter, focusVerse, loading, verses, selectedVersion.abbreviation, onFocusVerseHandled])
 
   // Load user data from database
   useEffect(() => {
