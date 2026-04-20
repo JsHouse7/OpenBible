@@ -1,78 +1,69 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ikbjaqdnsvxmjckihtih.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYmphcWRuc3Z4bWpja2lodGloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyMjcyMzQsImV4cCI6MjA2NjgwMzIzNH0.EUbUcsH7XRUrTR6KR7qYbxKwLzIS3A2aR2g4YOcdFCk'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? ''
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? ''
 
-// Check if Supabase is properly configured
-export const isSupabaseConfigured = () => {
-  // Check if we have valid Supabase URL and key
-  return supabaseUrl && 
-         supabaseAnonKey && 
-         supabaseUrl.includes('supabase.co') &&
-         supabaseAnonKey.startsWith('eyJ') // JWT tokens start with 'eyJ'
-}
+export const isSupabaseConfigured = () =>
+  Boolean(supabaseUrl && supabaseAnonKey)
 
-// Mock query builder for development
 const createMockQueryBuilder = () => {
   const mockBuilder = {
-    select: (columns?: string) => mockBuilder,
-    insert: (data: any) => mockBuilder,
-    update: (data: any) => mockBuilder,
+    select: (_columns?: string) => mockBuilder,
+    insert: (_data: unknown) => mockBuilder,
+    update: (_data: unknown) => mockBuilder,
     delete: () => mockBuilder,
-    upsert: (data: any, options?: any) => mockBuilder,
-    eq: (column: string, value: any) => mockBuilder,
-    order: (column: string, options?: any) => mockBuilder,
-    limit: (count: number) => mockBuilder,
+    upsert: (_data: unknown, _options?: unknown) => mockBuilder,
+    eq: (_column: string, _value: unknown) => mockBuilder,
+    order: (_column: string, _options?: unknown) => mockBuilder,
+    limit: (_count: number) => mockBuilder,
     single: () => mockBuilder,
-    textSearch: (column: string, query: string) => mockBuilder,
-    then: (resolve: Function) => {
-      // Return empty data for all queries in development
-      return Promise.resolve({ data: [], error: null }).then((value) => resolve(value))
-    },
-    // Make it thenable to satisfy TypeScript
-    catch: (reject: Function) => Promise.resolve({ data: [], error: null }),
-    finally: (callback: Function) => Promise.resolve({ data: [], error: null })
+    textSearch: (_column: string, _query: string) => mockBuilder,
+    then: (resolve: (value: unknown) => void) =>
+      Promise.resolve({ data: [], error: null }).then((value) => resolve(value)),
+    catch: (_reject: (reason: unknown) => void) => Promise.resolve({ data: [], error: null }),
+    finally: (_callback: () => void) => Promise.resolve({ data: [], error: null }),
   }
-  
-  // Make the builder a proper thenable
   Object.defineProperty(mockBuilder, Symbol.toStringTag, {
     value: 'Promise',
-    configurable: true
+    configurable: true,
   })
-  
   return mockBuilder
 }
 
-// Only create client if we have valid values, otherwise create a mock client
-export const supabase = isSupabaseConfigured() 
+export const supabase = isSupabaseConfigured()
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        persistSession: typeof window !== 'undefined', // Only persist in browser
+        persistSession: typeof window !== 'undefined',
         autoRefreshToken: typeof window !== 'undefined',
-      }
+      },
     })
-  : {
-      // Mock client for development without Supabase
+  : ({
       auth: {
         getUser: () => Promise.resolve({ data: { user: null }, error: null }),
         getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-        onAuthStateChange: (callback: Function) => {
-          // Return a mock subscription
-          return {
-            data: { subscription: { unsubscribe: () => {} } },
-            unsubscribe: () => {}
-          }
-        },
-        signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Supabase not configured') }),
-        signUp: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Supabase not configured') }),
+        onAuthStateChange: () => ({
+          data: { subscription: { unsubscribe: () => {} } },
+          unsubscribe: () => {},
+        }),
+        signInWithPassword: () =>
+          Promise.resolve({
+            data: { user: null, session: null },
+            error: new Error('Supabase not configured'),
+          }),
+        signUp: () =>
+          Promise.resolve({
+            data: { user: null, session: null },
+            error: new Error('Supabase not configured'),
+          }),
         signOut: () => Promise.resolve({ error: null }),
-        resetPasswordForEmail: () => Promise.resolve({ error: new Error('Supabase not configured') }),
-        updateUser: () => Promise.resolve({ data: { user: null }, error: new Error('Supabase not configured') })
+        resetPasswordForEmail: () =>
+          Promise.resolve({ error: new Error('Supabase not configured') }),
+        updateUser: () =>
+          Promise.resolve({ data: { user: null }, error: new Error('Supabase not configured') }),
       },
-      from: (table: string) => createMockQueryBuilder()
-    } as any
+      from: () => createMockQueryBuilder(),
+    } as unknown as ReturnType<typeof createClient>)
 
-// Database types
 export interface Bible {
   id: string
   book: string

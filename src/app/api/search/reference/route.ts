@@ -147,7 +147,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const reference = searchParams.get('ref');
-    const translation = searchParams.get('translation') || 'KJV';
+    const translation =
+      searchParams.get('translation') || searchParams.get('version') || 'KJV';
 
     if (!reference) {
       return NextResponse.json(
@@ -219,48 +220,25 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/** POST forwards to GET only (history: POST /api/search/history with Bearer token). */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { reference, version = 'KJV', userId } = body;
+    const body = await request.json().catch(() => ({}));
+    const reference = typeof body.reference === 'string' ? body.reference : '';
+    const version = typeof body.version === 'string' ? body.version : 'KJV';
 
-    if (!reference) {
-      return NextResponse.json(
-        { error: 'Reference is required' },
-        { status: 400 }
-      );
+    if (!reference.trim()) {
+      return NextResponse.json({ error: 'Reference is required' }, { status: 400 });
     }
 
-    // Save search to history if user is authenticated
-    if (userId) {
-      const { error: historyError } = await supabase
-        .from('search_history')
-        .insert({
-          user_id: userId,
-          query: reference,
-          search_type: 'reference',
-          filters: { version },
-          results_count: 0 // Will be updated after search
-        });
-
-      if (historyError) {
-        console.error('Failed to save search history:', historyError);
-      }
-    }
-
-    // Perform the search using GET logic
     const searchUrl = new URL(request.url);
     searchUrl.searchParams.set('ref', reference);
-    searchUrl.searchParams.set('version', version);
+    searchUrl.searchParams.set('translation', version);
 
-    const searchRequest = new NextRequest(searchUrl);
-    return GET(searchRequest);
+    return GET(new NextRequest(searchUrl));
   } catch (error) {
     console.error('POST API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 

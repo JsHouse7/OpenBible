@@ -93,7 +93,7 @@ export function BibleReader({ book, chapter, onNavigate, onBookClick, onChapterC
           ).map((note: any) => ({
             id: note.id,
             verseId: `${note.book}-${note.chapter}-${note.verse}`,
-            text: note.content,
+            text: note.note ?? note.content ?? '',
             timestamp: note.created_at,
             book: note.book,
             chapter: note.chapter,

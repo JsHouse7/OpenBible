@@ -14,8 +14,12 @@
 ## **Step 2: Database Setup**
 
 1. **Open SQL Editor**: In your Supabase dashboard → SQL Editor
-2. **Run Schema**: Copy and paste the entire contents of `database/schema.sql`
-3. **Execute**: Click "Run" to create all tables and policies
+2. **Run schema**: Copy and paste the entire contents of `database/schema.sql`, then **Run**.
+3. **Run search + security migrations** (if you use verse search / literature uploads):
+   - `database/migrations/001_verse_search_feature.sql` (or your existing search migration)
+   - **`database/migrations/002_production_security_fixes.sql`** — fixes `search_verses` to use the `translation` column, adds `works.owner_user_id`, and tightens RLS on `works` / `authors`.
+
+**If this project was ever committed with real Supabase keys**, rotate **anon** and **service role** in the Supabase dashboard (Settings → API), then update Vercel and local `.env.local`. Never commit secrets; `vercel.json` in this repo no longer stores env values.
 
 ## **Step 3: Environment Variables**
 

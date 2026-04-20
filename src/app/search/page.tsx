@@ -108,15 +108,18 @@ function SearchPageContent() {
       const isReference = /^\d*\s*[a-zA-Z]+\s*\d+:\d+(-\d+)?$/.test(query.trim());
       const endpoint = isReference ? '/api/search/reference' : '/api/search/verses';
       
-      // Build query parameters
       const params = new URLSearchParams({
-        q: query,
         page: page.toString(),
-        limit: '20'
+        limit: '20',
       });
 
-      // Add filters for verse search
-      if (!isReference) {
+      if (isReference) {
+        params.set('ref', query);
+        if (searchFilters.version) {
+          params.set('translation', searchFilters.version);
+        }
+      } else {
+        params.set('q', query);
         if (searchFilters.books && searchFilters.books.length > 0) {
           params.append('books', searchFilters.books.join(','));
         }

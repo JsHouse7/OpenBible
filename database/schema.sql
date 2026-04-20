@@ -1,9 +1,6 @@
 -- OpenBible Database Schema
 -- Run this in your Supabase SQL editor to set up the database
 
--- Enable Row Level Security
-ALTER DATABASE postgres SET "app.settings.jwt_secret" TO 'your-jwt-secret';
-
 -- Bible content table
 CREATE TABLE bible_verses (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -115,6 +112,7 @@ CREATE TABLE works (
   year_published INTEGER,
   is_available BOOLEAN DEFAULT true,
   content TEXT, -- JSON content of the work
+  owner_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -141,17 +139,17 @@ CREATE POLICY "Authors are publicly readable" ON authors
 CREATE POLICY "Authenticated users can insert authors" ON authors
   FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
-CREATE POLICY "Authenticated users can update authors" ON authors
-  FOR UPDATE USING (auth.role() = 'authenticated');
-
 CREATE POLICY "Works are publicly readable" ON works
   FOR SELECT USING (true);
 
-CREATE POLICY "Authenticated users can insert works" ON works
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users can insert own works" ON works
+  FOR INSERT WITH CHECK (auth.uid() = owner_user_id);
 
-CREATE POLICY "Authenticated users can update works" ON works
-  FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Users can update own works" ON works
+  FOR UPDATE USING (auth.uid() = owner_user_id);
+
+CREATE POLICY "Users can delete own works" ON works
+  FOR DELETE USING (auth.uid() = owner_user_id);
 
 -- User notes policies
 CREATE POLICY "Users can view their own notes" ON user_notes
@@ -209,8 +207,7 @@ CREATE POLICY "Users can update their own preferences" ON user_preferences
 CREATE POLICY "Users can delete their own preferences" ON user_preferences
   FOR DELETE USING (auth.uid() = user_id);
 
--- Bible verses are public (no RLS needed)
--- Authors and works are public (no RLS needed)
+-- bible_verses, authors, and works SELECT are public; works writes are owner-scoped (see policies above).
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()

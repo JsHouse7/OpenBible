@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
           verseData.forEach((verse: any) => {
             const text = verse.text.toLowerCase();
             const words = text.split(/\s+/);
-            const queryIndex = words.findIndex(word => 
+            const queryIndex = words.findIndex((word: string) =>
               word.includes(normalizedQuery.split(' ')[0])
             );
             

@@ -186,7 +186,7 @@ const handleSaveWork = async () => {
         chapters: previewWork.chapters.length,
         lastModified: new Date().toISOString(),
         description: previewWork.description,
-        year: previewWork.year
+        year: previewWork.year ?? 0,
       }
       setExistingWorks(prev => [...prev, newWork])
 
@@ -227,8 +227,8 @@ const handleSaveEdit = async () => {
       title: editingWork.title,
       author: editingWork.author,
       year: editingWork.year,
-      difficulty: editingWork.difficulty,
-      description: editingWork.description
+      difficulty: editingWork.difficulty as 'beginner' | 'intermediate' | 'advanced',
+      description: editingWork.description,
     });
     setExistingWorks(prev => prev.map(w => w.id === editingWork.id ? editingWork : w));
     setEditingWork(null);

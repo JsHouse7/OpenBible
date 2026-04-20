@@ -17,6 +17,11 @@ export interface UserPreferences {
   searchHistory?: string[]
   favoriteVerses?: any[]
   studyNotes?: any[]
+  verseNumbers?: boolean
+  readingMode?: string
+  highlightEnabled?: boolean
+  autoSave?: boolean
+  notifications?: boolean
   [key: string]: any
 }
 
@@ -55,7 +60,7 @@ class UserPreferencesService {
       while (this.isLoading) {
         await new Promise(resolve => setTimeout(resolve, 100))
       }
-      return this.cache || {}
+      return (this.cache ?? {}) as UserPreferences
     }
 
     this.isLoading = true
@@ -69,16 +74,17 @@ class UserPreferencesService {
 
       if (!response.ok) {
         if (response.status === 401) {
-          // User not authenticated, return empty preferences
-          this.cache = {}
-          return this.cache
+          const empty = {} as UserPreferences
+          this.cache = empty
+          return empty
         }
         throw new Error(`Failed to fetch preferences: ${response.statusText}`)
       }
 
       const data = await response.json()
-      this.cache = data.preferences || {}
-      return this.cache
+      const prefs = (data.preferences ?? {}) as UserPreferences
+      this.cache = prefs
+      return prefs
     } catch (error) {
       console.error('Error fetching user preferences:', error)
       // Fallback to localStorage if database fails
@@ -149,7 +155,8 @@ class UserPreferencesService {
 
   async getPreference<T>(key: string, defaultValue?: T): Promise<T> {
     const preferences = await this.getPreferences()
-    return preferences[key] !== undefined ? preferences[key] : defaultValue
+    const v = preferences[key]
+    return (v !== undefined ? v : defaultValue) as T
   }
 
   async setPreference(key: string, value: any): Promise<void> {
@@ -162,11 +169,11 @@ class UserPreferencesService {
 
   // Fallback methods for localStorage
   private getLocalStoragePreferences(): UserPreferences {
-    if (typeof window === 'undefined') return {}
-    
+    if (typeof window === 'undefined') return {} as UserPreferences
+
     try {
       const stored = localStorage.getItem('userPreferences')
-      return stored ? JSON.parse(stored) : {}
+      return stored ? (JSON.parse(stored) as UserPreferences) : ({} as UserPreferences)
     } catch (error) {
       console.error('Error reading from localStorage:', error)
       return {}

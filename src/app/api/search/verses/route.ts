@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       totalQuery = totalQuery.eq('book', book);
     }
     if (version) {
-      totalQuery = totalQuery.eq('version', version);
+      totalQuery = totalQuery.eq('translation', version);
     }
 
     const { count: totalCount, error: countError } = await totalQuery;
@@ -116,59 +116,31 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/** POST forwards to GET logic only (no trusted userId; use POST /api/search/history with Bearer token). */
 export async function POST(request: NextRequest) {
   try {
-    // Check if Supabase is configured
     if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 });
     }
 
-    const body = await request.json();
-    const { query, filters = {}, userId } = body;
+    const body = await request.json().catch(() => ({}));
+    const query = typeof body.query === 'string' ? body.query : '';
+    const filters = body.filters && typeof body.filters === 'object' ? body.filters : {};
 
-    if (!query) {
-      return NextResponse.json(
-        { error: 'Search query is required' },
-        { status: 400 }
-      );
+    if (!query.trim()) {
+      return NextResponse.json({ error: 'Search query is required' }, { status: 400 });
     }
 
-    // Save search to history if user is authenticated
-    if (userId) {
-      const { error: historyError } = await supabase
-        .from('search_history')
-        .insert({
-          user_id: userId,
-          query,
-          search_type: 'verse',
-          filters,
-          results_count: 0 // Will be updated after search
-        });
-
-      if (historyError) {
-        console.error('Failed to save search history:', historyError);
-      }
-    }
-
-    // Perform the search using GET logic
     const searchUrl = new URL(request.url);
     searchUrl.searchParams.set('q', query);
-    
-    if (filters.book) searchUrl.searchParams.set('book', filters.book);
-    if (filters.version) searchUrl.searchParams.set('version', filters.version);
-    if (filters.page) searchUrl.searchParams.set('page', filters.page.toString());
-    if (filters.limit) searchUrl.searchParams.set('limit', filters.limit.toString());
+    if (filters.book) searchUrl.searchParams.set('book', String(filters.book));
+    if (filters.version) searchUrl.searchParams.set('version', String(filters.version));
+    if (filters.page) searchUrl.searchParams.set('page', String(filters.page));
+    if (filters.limit) searchUrl.searchParams.set('limit', String(filters.limit));
 
-    const searchRequest = new NextRequest(searchUrl);
-    return GET(searchRequest);
+    return GET(new NextRequest(searchUrl));
   } catch (error) {
     console.error('POST API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

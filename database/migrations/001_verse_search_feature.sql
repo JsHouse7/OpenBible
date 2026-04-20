@@ -175,8 +175,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_search_analytics_unique 
 ON search_analytics(query, search_type);
 
--- Create function for verse search with ranking
-CREATE OR REPLACE FUNCTION search_verses(
+-- Verse search RPC (OUT types must match bible_verses column types, e.g. TEXT not VARCHAR)
+DROP FUNCTION IF EXISTS search_verses(text, text, text, integer, integer);
+CREATE FUNCTION search_verses(
   search_query TEXT,
   book_filter TEXT DEFAULT NULL,
   version_filter TEXT DEFAULT 'KJV',
@@ -185,32 +186,30 @@ CREATE OR REPLACE FUNCTION search_verses(
 )
 RETURNS TABLE(
   id UUID,
-  book VARCHAR(50),
+  book TEXT,
   chapter INTEGER,
   verse INTEGER,
   text TEXT,
-  version VARCHAR(10),
+  version TEXT,
   rank REAL
 ) AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     bv.id,
     bv.book,
     bv.chapter,
     bv.verse,
     bv.text,
-    bv.version,
-    ts_rank(bv.search_vector, plainto_tsquery('english', search_query)) as rank
+    bv.translation AS version,
+    ts_rank(bv.search_vector, plainto_tsquery('english', search_query))::real AS rank
   FROM bible_verses bv
-  WHERE 
+  WHERE
     bv.search_vector @@ plainto_tsquery('english', search_query)
     AND (book_filter IS NULL OR bv.book = book_filter)
-    AND (version_filter IS NULL OR bv.version = version_filter)
+    AND (version_filter IS NULL OR bv.translation = version_filter)
   ORDER BY rank DESC, bv.book, bv.chapter, bv.verse
   LIMIT limit_count
   OFFSET offset_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
-COMMIT;

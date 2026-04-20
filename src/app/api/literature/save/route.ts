@@ -14,7 +14,6 @@ function slugify(text: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('Received request to /api/literature/save');
   const authHeader = request.headers.get('authorization')
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return NextResponse.json({ error: 'Authorization header required' }, { status: 401 })
@@ -41,7 +40,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    console.log('Request body:', body);
     const { work } = body;
     
     if (!work) {
@@ -118,7 +116,7 @@ export async function POST(request: NextRequest) {
           content_type: 'book',
           year_published: literatureWork.year || null,
           is_available: true,
-          content: JSON.stringify(literatureWork)
+          content: JSON.stringify(literatureWork),
         })
         .eq('id', existingWork.id)
         .select()
@@ -126,9 +124,13 @@ export async function POST(request: NextRequest) {
 
       if (workError) {
         console.error('Error updating work:', workError)
+        const forbidden =
+          workError.code === '42501' ||
+          workError.message?.toLowerCase().includes('policy') ||
+          workError.message?.toLowerCase().includes('permission')
         return NextResponse.json(
-          { error: 'Failed to update literature work' },
-          { status: 500 }
+          { error: forbidden ? 'Not allowed to update this work' : 'Failed to update literature work' },
+          { status: forbidden ? 403 : 500 }
         )
       }
       savedWork = data
@@ -149,7 +151,8 @@ export async function POST(request: NextRequest) {
           content_type: 'book',
           year_published: literatureWork.year || null,
           is_available: true,
-          content: JSON.stringify(literatureWork)
+          content: JSON.stringify(literatureWork),
+          owner_user_id: user.id,
         })
         .select()
         .single()
@@ -157,9 +160,9 @@ export async function POST(request: NextRequest) {
       if (workError) {
         console.error('Error creating work:', workError)
         return NextResponse.json(
-          { 
+          {
             error: 'Failed to create literature work',
-            details: workError.message 
+            details: workError.message,
           },
           { status: 500 }
         )

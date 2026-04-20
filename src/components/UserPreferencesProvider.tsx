@@ -38,6 +38,19 @@ interface UserPreferences {
   // Privacy settings
   shareReadingProgress: boolean
   allowDataCollection: boolean
+
+  /** Used by Settings UI (persisted in JSON preferences blob). */
+  verseNumbers: boolean
+  autoSave: boolean
+  notifications: boolean
+  audioEnabled: boolean
+  dailyReadingReminders: boolean
+  weeklyProgressUpdates: boolean
+  newLiteratureReleases: boolean
+  achievementNotifications: boolean
+  analyticsCollection: boolean
+  crashReporting: boolean
+  publicReadingStats: boolean
 }
 
 const defaultPreferences: UserPreferences = {
@@ -63,6 +76,17 @@ const defaultPreferences: UserPreferences = {
   dictionaryVisible: false,
   shareReadingProgress: true,
   allowDataCollection: true,
+  verseNumbers: true,
+  autoSave: true,
+  notifications: true,
+  audioEnabled: false,
+  dailyReadingReminders: true,
+  weeklyProgressUpdates: true,
+  newLiteratureReleases: true,
+  achievementNotifications: true,
+  analyticsCollection: true,
+  crashReporting: true,
+  publicReadingStats: false,
 }
 
 interface UserPreferencesContextType {

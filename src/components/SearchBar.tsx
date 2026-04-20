@@ -13,28 +13,40 @@ interface Suggestion {
 
 interface SearchBarProps {
   placeholder?: string;
+  /** Seed the input when opening search with a URL query (e.g. ?q=). */
+  initialValue?: string;
   onSearch?: (query: string, type?: 'verse' | 'reference') => void;
   className?: string;
   showVoiceSearch?: boolean;
   autoFocus?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  /** Compact icon-style search in the nav header. */
+  variant?: 'default' | 'mobile' | 'desktop';
 }
 
 export default function SearchBar({
   placeholder = "Search verses or enter reference (e.g., 'John 3:16' or 'love')",
+  initialValue = '',
   onSearch,
   className = '',
   showVoiceSearch = true,
   autoFocus = false,
-  size = 'md'
+  size = 'md',
+  variant = 'default',
 }: SearchBarProps) {
-  const [query, setQuery] = useState('');
+  const effectiveVoice = variant === 'mobile' ? false : showVoiceSearch;
+  const effectiveSize = variant === 'mobile' ? 'sm' : size;
+  const [query, setQuery] = useState(initialValue);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isLoading, setIsLoading] = useState(false);
   
+  useEffect(() => {
+    setQuery(initialValue);
+  }, [initialValue]);
+
   const debouncedQuery = useDebounce(query, 300);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
@@ -256,7 +268,7 @@ export default function SearchBar({
             focus:ring-2 focus:ring-primary focus:border-transparent
             placeholder-muted-foreground bg-background shadow-sm
             text-foreground
-            ${sizeClasses[size]}
+            ${sizeClasses[effectiveSize]}
             ${isListening ? 'ring-2 ring-red-500 border-red-500' : ''}
           `}
         />
@@ -272,7 +284,7 @@ export default function SearchBar({
             </button>
           )}
           
-          {showVoiceSearch && recognitionRef.current && (
+          {effectiveVoice && recognitionRef.current && (
             <button
               onClick={handleVoiceSearch}
               className={`

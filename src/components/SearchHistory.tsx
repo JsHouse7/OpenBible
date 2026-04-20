@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, Star, Trash2, Search, X, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/AuthProvider';
 
 interface SearchHistoryItem {
   id: string;
@@ -34,6 +35,7 @@ export default function SearchHistory({
   onClearHistory,
   className = ''
 }: SearchHistoryProps) {
+  const { session } = useAuth();
   const [activeTab, setActiveTab] = useState<'recent' | 'saved'>('recent');
   const [recentSearches, setRecentSearches] = useState<SearchHistoryItem[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
@@ -42,61 +44,63 @@ export default function SearchHistory({
   const [searchToSave, setSearchToSave] = useState<SearchHistoryItem | null>(null);
   const [saveName, setSaveName] = useState('');
 
-  // Load search history from API or localStorage
+  const authHeaders = useCallback((): HeadersInit => {
+    const token = session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, [session?.access_token]);
+
   const loadSearchHistory = useCallback(async () => {
     setIsLoading(true);
-    
+
     try {
-      // Try to load from API first (for authenticated users)
-      const response = await fetch('/api/search/history');
-      
-      if (response.ok) {
-        const data = await response.json();
-        setRecentSearches(data.searches || []);
-      } else {
-        // Fallback to localStorage for non-authenticated users
-        const localHistory = localStorage.getItem('searchHistory');
-        if (localHistory) {
-          const parsed = JSON.parse(localHistory);
-          setRecentSearches(parsed);
+      if (session?.access_token) {
+        const [historyRes, savedRes] = await Promise.all([
+          fetch('/api/search/history', { headers: authHeaders() }),
+          fetch('/api/search/saved', { headers: authHeaders() }),
+        ]);
+
+        if (historyRes.ok) {
+          const data = await historyRes.json();
+          setRecentSearches(data.searches || []);
+        } else {
+          setRecentSearches([]);
         }
-      }
-      
-      // Load saved searches
-      const savedResponse = await fetch('/api/search/saved');
-      if (savedResponse.ok) {
-        const savedData = await savedResponse.json();
-        setSavedSearches(savedData.searches || []);
-      } else {
-        // Fallback to localStorage
-        const localSaved = localStorage.getItem('savedSearches');
-        if (localSaved) {
-          const parsed = JSON.parse(localSaved);
-          setSavedSearches(parsed);
+
+        if (savedRes.ok) {
+          const savedData = await savedRes.json();
+          setSavedSearches(savedData.searches || []);
+        } else {
+          setSavedSearches([]);
         }
+        return;
       }
-      
+
+      const localHistory = localStorage.getItem('searchHistory');
+      if (localHistory) {
+        setRecentSearches(JSON.parse(localHistory));
+      } else {
+        setRecentSearches([]);
+      }
+      const localSaved = localStorage.getItem('savedSearches');
+      if (localSaved) {
+        setSavedSearches(JSON.parse(localSaved));
+      } else {
+        setSavedSearches([]);
+      }
     } catch (error) {
       console.error('Failed to load search history:', error);
-      
-      // Fallback to localStorage
       try {
         const localHistory = localStorage.getItem('searchHistory');
         const localSaved = localStorage.getItem('savedSearches');
-        
-        if (localHistory) {
-          setRecentSearches(JSON.parse(localHistory));
-        }
-        if (localSaved) {
-          setSavedSearches(JSON.parse(localSaved));
-        }
+        if (localHistory) setRecentSearches(JSON.parse(localHistory));
+        if (localSaved) setSavedSearches(JSON.parse(localSaved));
       } catch (parseError) {
         console.error('Failed to parse local search history:', parseError);
       }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [session?.access_token, authHeaders]);
 
   // Load data on component mount
   useEffect(() => {
@@ -113,9 +117,17 @@ export default function SearchHistory({
   // Handle delete recent search
   const handleDeleteRecentSearch = useCallback(async (searchId: string) => {
     try {
-      // Try to delete from API
+      if (!session?.access_token) {
+        const updated = recentSearches.filter((search) => search.id !== searchId);
+        setRecentSearches(updated);
+        localStorage.setItem('searchHistory', JSON.stringify(updated));
+        toast.success('Search removed from history');
+        return;
+      }
+
       const response = await fetch(`/api/search/history/${searchId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: authHeaders(),
       });
       
       if (response.ok) {
@@ -132,14 +144,22 @@ export default function SearchHistory({
       console.error('Failed to delete search:', error);
       toast.error('Failed to remove search');
     }
-  }, [recentSearches]);
+  }, [recentSearches, session?.access_token, authHeaders]);
 
   // Handle clear all history
   const handleClearAllHistory = useCallback(async () => {
     try {
-      // Try to clear from API
-      const response = await fetch('/api/search/history', {
-        method: 'DELETE'
+      if (!session?.access_token) {
+        setRecentSearches([]);
+        localStorage.removeItem('searchHistory');
+        if (onClearHistory) onClearHistory();
+        toast.success('Search history cleared');
+        return;
+      }
+
+      const response = await fetch('/api/search/history?all=true', {
+        method: 'DELETE',
+        headers: authHeaders(),
       });
       
       if (response.ok) {
@@ -161,7 +181,7 @@ export default function SearchHistory({
       console.error('Failed to clear history:', error);
       toast.error('Failed to clear history');
     }
-  }, [onClearHistory]);
+  }, [onClearHistory, session?.access_token, authHeaders]);
 
   // Handle save search
   const handleSaveSearch = useCallback((search: SearchHistoryItem) => {
@@ -177,39 +197,51 @@ export default function SearchHistory({
       return;
     }
 
-    const newSavedSearch: SavedSearch = {
+    const localSaved: SavedSearch = {
       id: Date.now().toString(),
       name: saveName.trim(),
       query: searchToSave.query,
       searchType: searchToSave.searchType,
       createdAt: new Date().toISOString(),
-      lastUsed: new Date().toISOString()
+      lastUsed: new Date().toISOString(),
     };
 
     try {
-      // Try to save to API
-      const response = await fetch('/api/search/saved', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newSavedSearch)
-      });
+      if (session?.access_token) {
+        const response = await fetch('/api/search/saved', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders(),
+          },
+          body: JSON.stringify({
+            title: saveName.trim(),
+            name: saveName.trim(),
+            query: searchToSave.query,
+            searchType: searchToSave.searchType,
+            filters: {},
+          }),
+        });
 
-      if (response.ok) {
-        setSavedSearches(prev => [newSavedSearch, ...prev]);
-        toast.success('Search saved successfully');
-      } else {
-        // Fallback to localStorage
-        const updated = [newSavedSearch, ...savedSearches];
-        setSavedSearches(updated);
-        localStorage.setItem('savedSearches', JSON.stringify(updated));
-        toast.success('Search saved locally');
+        if (response.ok) {
+          const data = await response.json();
+          const saved = data.search as SavedSearch;
+          setSavedSearches((prev) => [saved, ...prev]);
+          toast.success('Search saved successfully');
+          setShowSaveDialog(false);
+          setSearchToSave(null);
+          setSaveName('');
+          return;
+        }
       }
+
+      const updated = [localSaved, ...savedSearches];
+      setSavedSearches(updated);
+      localStorage.setItem('savedSearches', JSON.stringify(updated));
+      toast.success('Search saved locally');
     } catch (error) {
       console.error('Failed to save search:', error);
-      // Fallback to localStorage
-      const updated = [newSavedSearch, ...savedSearches];
+      const updated = [localSaved, ...savedSearches];
       setSavedSearches(updated);
       localStorage.setItem('savedSearches', JSON.stringify(updated));
       toast.success('Search saved locally');
@@ -218,14 +250,22 @@ export default function SearchHistory({
     setShowSaveDialog(false);
     setSearchToSave(null);
     setSaveName('');
-  }, [searchToSave, saveName, savedSearches]);
+  }, [searchToSave, saveName, savedSearches, session?.access_token, authHeaders]);
 
   // Handle delete saved search
   const handleDeleteSavedSearch = useCallback(async (searchId: string) => {
     try {
-      // Try to delete from API
+      if (!session?.access_token) {
+        const updated = savedSearches.filter((search) => search.id !== searchId);
+        setSavedSearches(updated);
+        localStorage.setItem('savedSearches', JSON.stringify(updated));
+        toast.success('Saved search removed');
+        return;
+      }
+
       const response = await fetch(`/api/search/saved/${searchId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: authHeaders(),
       });
 
       if (response.ok) {
@@ -242,7 +282,7 @@ export default function SearchHistory({
       console.error('Failed to delete saved search:', error);
       toast.error('Failed to remove saved search');
     }
-  }, [savedSearches]);
+  }, [savedSearches, session?.access_token, authHeaders]);
 
   // Format date
   const formatDate = useCallback((dateString: string) => {
