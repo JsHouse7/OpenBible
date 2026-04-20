@@ -69,7 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string) => {
     if (!isSupabaseConfigured()) {
-      return { error: { message: 'Authentication not configured' } as AuthError }
+      return {
+        error: {
+          message:
+            'Authentication not configured: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then rebuild/redeploy.',
+        } as AuthError,
+      }
     }
 
     try {
@@ -103,7 +108,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     if (!isSupabaseConfigured()) {
-      return { error: { message: 'Authentication not configured' } as AuthError }
+      return {
+        error: {
+          message:
+            'Authentication not configured: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then rebuild/redeploy.',
+        } as AuthError,
+      }
     }
 
     try {
@@ -127,7 +137,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     if (!isSupabaseConfigured()) {
-      return { error: { message: 'Authentication not configured' } as AuthError }
+      return {
+        error: {
+          message:
+            'Authentication not configured: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then rebuild/redeploy.',
+        } as AuthError,
+      }
     }
 
     try {
@@ -147,7 +162,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     if (!isSupabaseConfigured()) {
-      return { error: { message: 'Authentication not configured' } as AuthError }
+      return {
+        error: {
+          message:
+            'Authentication not configured: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then rebuild/redeploy.',
+        } as AuthError,
+      }
     }
 
     try {
@@ -176,7 +196,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     denomination?: string; 
   }) => {
     if (!isSupabaseConfigured()) {
-      return { error: { message: 'Authentication not configured' } as AuthError }
+      return {
+        error: {
+          message:
+            'Authentication not configured: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then rebuild/redeploy.',
+        } as AuthError,
+      }
     }
 
     try {

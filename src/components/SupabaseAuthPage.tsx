@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/components/AuthProvider'
+import { isSupabaseConfigured } from '@/lib/supabase'
 import { 
   Eye, 
   EyeOff, 
@@ -178,6 +179,21 @@ export default function SupabaseAuthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {!isSupabaseConfigured() && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="space-y-2 text-sm">
+                  <p className="font-medium">Supabase is not wired to this deployment.</p>
+                  <p>
+                    Add <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> from
+                    Supabase (Project Settings → API) to your host—on Vercel: Project → Settings → Environment Variables
+                    for Production (and Preview if you use it)—then redeploy. These must be present at build time for
+                    the browser client.
+                  </p>
+                </AlertDescription>
+              </Alert>
+            )}
             {(errors.general || success) && (
               <Alert variant={errors.general ? "destructive" : "default"}>
                 <AlertCircle className="h-4 w-4" />
