@@ -53,6 +53,7 @@ const JOHN_316_PREVIEW: Record<string, string> = {
   nkjv: 'For God so loved the world that He gave His only begotten Son, that whoever believes in Him should not perish but have everlasting life.',
   nlt: 'For this is how God loved the world: He gave his one and only Son, so that everyone who believes in him will not perish but have eternal life.',
   asv: 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth on him should not perish, but have eternal life.',
+  ylt: 'For God did so love the world, that His Son -- the only begotten -- He gave, that every one who is believing in him may not perish, but may have life age-during.',
 }
 const DEFAULT_JOHN_316 =
   'For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.'

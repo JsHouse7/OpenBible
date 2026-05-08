@@ -90,6 +90,14 @@ const translationInfo = {
     language: 'English',
     year: 1901,
     description: 'An early 20th century American revision of the Bible'
+  },
+  YLT: {
+    name: "Young's Literal Translation",
+    abbreviation: 'YLT',
+    language: 'English',
+    year: 1862,
+    description:
+      'A very literal English rendering that preserves Hebrew and Greek tense and word order where possible'
   }
 }
 
@@ -104,7 +112,17 @@ export function BibleVersionProvider({ children }: { children: React.ReactNode }
     const loadTranslations = async () => {
       try {
         // List of translations we have downloaded (will be expanded as more are added)
-        const availableTranslations = ['KJV', 'ESV', 'NIV', 'WEB', 'NASB', 'NKJV', 'NLT', 'ASV']
+        const availableTranslations = [
+          'KJV',
+          'ESV',
+          'NIV',
+          'WEB',
+          'NASB',
+          'NKJV',
+          'NLT',
+          'ASV',
+          'YLT'
+        ]
         
         // Map translation codes to full version objects
         const versionObjects = availableTranslations.map(code => {
