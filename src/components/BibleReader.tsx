@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { VerseComponent } from '@/components/VerseComponent'
@@ -70,6 +70,9 @@ export function BibleReader({
   const [noteVerse, setNoteVerse] = useState<BibleVerse | null>(null)
   const focusHandledKeyRef = useRef<string | null>(null)
 
+  /** After next/previous chapter via header controls, scroll to top once props update (window is the scroll root). */
+  const scrollReaderToTopAfterNavRef = useRef(false)
+
   // Get current book info
   const currentBookInfo = COMPLETE_BIBLE_BOOKS.find(b => b.name === book)
   const { selectedVersion, isLoading: isTranslationLoading } = useBibleVersion()
@@ -125,6 +128,12 @@ export function BibleReader({
       onFocusVerseHandled?.()
     })
   }, [book, chapter, focusVerse, loading, verses, selectedVersion.abbreviation, onFocusVerseHandled])
+
+  useLayoutEffect(() => {
+    if (!scrollReaderToTopAfterNavRef.current) return
+    scrollReaderToTopAfterNavRef.current = false
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [book, chapter])
 
   // Load user data from database
   useEffect(() => {
@@ -346,15 +355,21 @@ export function BibleReader({
   }
 
   // Navigation helpers
+  const navigateChapter = (nextBook: string, nextChapter: number) => {
+    if (!onNavigate) return
+    scrollReaderToTopAfterNavRef.current = true
+    onNavigate(nextBook, nextChapter)
+  }
+
   const handlePreviousChapter = () => {
     if (chapter > 1) {
-      onNavigate?.(book, chapter - 1)
+      navigateChapter(book, chapter - 1)
     } else {
       // Go to previous book's last chapter
       const currentBookIndex = COMPLETE_BIBLE_BOOKS.findIndex(b => b.name === book)
       if (currentBookIndex > 0) {
         const previousBook = COMPLETE_BIBLE_BOOKS[currentBookIndex - 1]
-        onNavigate?.(previousBook.name, previousBook.chapters)
+        navigateChapter(previousBook.name, previousBook.chapters)
       }
     }
   }
@@ -362,13 +377,13 @@ export function BibleReader({
   const handleNextChapter = () => {
     const maxChapters = currentBookInfo?.chapters || 1
     if (chapter < maxChapters) {
-      onNavigate?.(book, chapter + 1)
+      navigateChapter(book, chapter + 1)
     } else {
       // Go to next book's first chapter
       const currentBookIndex = COMPLETE_BIBLE_BOOKS.findIndex(b => b.name === book)
       if (currentBookIndex < COMPLETE_BIBLE_BOOKS.length - 1) {
         const nextBook = COMPLETE_BIBLE_BOOKS[currentBookIndex + 1]
-        onNavigate?.(nextBook.name, 1)
+        navigateChapter(nextBook.name, 1)
       }
     }
   }
