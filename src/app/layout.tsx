@@ -87,7 +87,7 @@ export default function RootLayout({
                 <AnimationProvider>
                   <div className="min-h-screen bg-background">
                     <EnhancedNavigation />
-                    <div className="pt-14 pb-20 transition-all duration-300 md:pb-0 md:pt-16">
+                    <div className="pb-20 pt-[calc(3.5rem+env(safe-area-inset-top,0px))] transition-all duration-300 md:pb-0 md:pt-[calc(4rem+env(safe-area-inset-top,0px))]">
                       <main className="min-h-screen">
                         {children}
                       </main>

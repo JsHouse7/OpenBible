@@ -5,8 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { useTheme } from '@/components/ThemeProvider'
 import { useAuth } from '@/components/AuthProvider'
-import { useFonts } from '@/hooks/useFonts'
-import { notesService, analyticsService } from '@/lib/database'
+import { notesService } from '@/lib/database'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -26,7 +25,6 @@ import {
   Library,
   Bookmark,
   Heart,
-  Target,
   TrendingUp,
   Calendar,
   Shield
@@ -36,10 +34,10 @@ const EnhancedNavigation = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [notesCount, setNotesCount] = useState(0)
-  const [notificationsCount, setNotificationsCount] = useState(0)
+  /** Unread in-app notifications — set from a real source when available (not derived from notes/bookmarks). */
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const { theme, setTheme } = useTheme()
   const { user } = useAuth()
-  const { getUITextClasses } = useFonts()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -97,20 +95,13 @@ const EnhancedNavigation = () => {
     const fetchUserCounts = async () => {
       if (!user?.id) {
         setNotesCount(0)
-        setNotificationsCount(0)
+        setUnreadNotificationCount(0)
         return
       }
 
       try {
-        // Fetch notes count
         const notesResult = await notesService.getUserNotes(user.id)
         setNotesCount(notesResult.data?.length || 0)
-
-        // For notifications, we'll use a simple calculation based on recent activity
-        // In a real app, you'd have a notifications table
-        const statsResult = await analyticsService.getUserStats(user.id)
-        const recentActivity = (statsResult.data?.totalNotes || 0) + (statsResult.data?.totalBookmarks || 0)
-        setNotificationsCount(Math.min(recentActivity, 9)) // Cap at 9 for UI
       } catch (error) {
         console.error('Error fetching user counts:', error)
       }
@@ -122,16 +113,15 @@ const EnhancedNavigation = () => {
   return (
     <>
       {/* Main Navigation Bar */}
-      <nav className="fixed inset-x-0 top-0 z-50 h-14 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:h-16">
-        <div className="container h-full">
-          
+      <nav className="fixed inset-x-0 top-0 z-50 border-b bg-background/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center md:h-16">
           {/* Mobile Layout */}
-          <div className="flex h-full items-center justify-between md:hidden px-4">
-            {/* Left side - Logo and Menu */}
-            <div className="flex items-center gap-3">
+          <div className="flex min-h-14 w-full min-w-0 items-center justify-between gap-2 px-3 sm:px-4 md:hidden">
+            {/* Left: menu + brand */}
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0" aria-label="Open menu">
                     <Menu className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
@@ -194,29 +184,37 @@ const EnhancedNavigation = () => {
                 </SheetContent>
               </Sheet>
 
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <span className="text-lg font-bold text-foreground">OpenBible</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <BookOpen className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden />
+                <span className="truncate text-lg font-bold tracking-tight text-foreground">OpenBible</span>
               </div>
             </div>
 
-            {/* Right side - Search and Notifications */}
-            <div className="flex items-center gap-2">
-              {/* Mobile Search */}
-              <div className="w-8">
-                <SearchBar 
-                  placeholder="Search..."
-                  className="h-9 w-9 p-0"
-                  variant="mobile"
-                />
-              </div>
-
-              {/* Notifications */}
-              <Button variant="ghost" size="icon" className="relative h-9 w-9">
-                <Bell className="h-4 w-4" />
-                {notificationsCount > 0 && (
-                  <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 text-[10px] p-0 flex items-center justify-center min-w-0">
-                    {notificationsCount}
+            {/* Right: icon actions (no shared input border) */}
+            <div className="flex shrink-0 items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 text-muted-foreground hover:text-foreground"
+                aria-label="Search Bible and library"
+                onClick={() => router.push('/search')}
+              >
+                <Search className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative h-10 w-10 text-muted-foreground hover:text-foreground"
+                aria-label="Notification settings"
+                onClick={() => router.push('/settings')}
+              >
+                <Bell className="h-5 w-5" />
+                {unreadNotificationCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center px-1 py-0 text-[10px] leading-none"
+                  >
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
                   </Badge>
                 )}
               </Button>
@@ -224,7 +222,7 @@ const EnhancedNavigation = () => {
           </div>
 
           {/* Desktop Layout */}
-          <div className="hidden h-full items-center justify-between md:flex">
+          <div className="hidden h-full w-full items-center justify-between md:flex">
             {/* Logo and Mobile Menu */}
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -272,11 +270,20 @@ const EnhancedNavigation = () => {
               </Button>
 
               {/* Notifications */}
-              <Button variant="ghost" size="icon" className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-muted-foreground hover:text-foreground"
+                aria-label="Notification settings"
+                onClick={() => router.push('/settings')}
+              >
                 <Bell className="h-4 w-4" />
-                {notificationsCount > 0 && (
-                  <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 text-xs p-0 flex items-center justify-center">
-                    {notificationsCount}
+                {unreadNotificationCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center px-1 py-0 text-xs leading-none"
+                  >
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
                   </Badge>
                 )}
               </Button>
