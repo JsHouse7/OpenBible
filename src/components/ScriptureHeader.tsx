@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { BibleVersionSelector } from "./BibleVersionSelector"
 import { Switch } from "@/components/ui/switch"
@@ -138,30 +138,28 @@ export function ScriptureHeader({
               </div>
             </div>
 
-            <div className="shrink-0">
+            <div className="flex shrink-0 items-center gap-0.5">
               <BibleVersionSelector />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 md:hidden"
+                onClick={() => setReaderOptionsOpen((o) => !o)}
+                aria-expanded={readerOptionsOpen}
+                aria-controls="bible-reader-options-panel"
+                id="bible-reader-options-trigger"
+                aria-label={`Reader options: ${[flowSummary, numbersInFlowSummary].filter(Boolean).join(", ") || "layout and flow"}`}
+              >
+                <SlidersHorizontal
+                  className={cn(
+                    "h-5 w-5 text-muted-foreground transition-colors",
+                    readerOptionsOpen && "text-foreground"
+                  )}
+                />
+              </Button>
             </div>
           </div>
-
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-lg border border-border/50 bg-muted/25 px-3 py-2 text-left md:hidden"
-            onClick={() => setReaderOptionsOpen((o) => !o)}
-            aria-expanded={readerOptionsOpen}
-            aria-controls="bible-reader-options-panel"
-            id="bible-reader-options-trigger"
-          >
-            <ChevronDown
-              className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", readerOptionsOpen && "rotate-180")}
-              aria-hidden
-            />
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-medium text-foreground">Reader options</div>
-              <div className="truncate text-[11px] text-muted-foreground">
-                {[flowSummary, numbersInFlowSummary].filter(Boolean).join(" · ")}
-              </div>
-            </div>
-          </button>
 
           <div
             id="bible-reader-options-panel"

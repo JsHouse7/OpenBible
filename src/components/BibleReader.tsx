@@ -60,11 +60,11 @@ export function BibleReader({
   const readingModeClass = cn(
     'mx-auto w-full',
     readingMode === 'focus' &&
-      'max-w-4xl rounded-2xl border border-border/50 bg-muted/25 px-5 py-6 shadow-sm ring-1 ring-border/60 sm:px-6 md:max-w-2xl md:border-0 md:bg-transparent md:px-4 md:py-6 md:shadow-none md:ring-0 md:rounded-none',
+      'max-w-4xl rounded-2xl bg-muted/25 px-5 py-6 sm:px-6 md:max-w-2xl md:bg-transparent md:px-4 md:py-6 md:rounded-none',
     readingMode === 'meditation' &&
-      'max-w-4xl rounded-2xl border border-border/50 bg-gradient-to-b from-muted/50 via-muted/25 to-transparent px-6 py-7 leading-[1.85] sm:px-8 md:max-w-xl md:border-0 md:bg-none md:from-transparent md:via-transparent md:to-transparent md:px-4 md:py-6 md:leading-normal',
+      'max-w-4xl rounded-2xl bg-gradient-to-b from-muted/50 via-muted/25 to-transparent px-6 py-7 leading-[1.85] sm:px-8 md:max-w-xl md:bg-none md:from-transparent md:via-transparent md:to-transparent md:px-4 md:py-6 md:leading-normal md:rounded-none',
     readingMode === 'study' &&
-      'max-w-4xl rounded-r-2xl border-l-[6px] border-primary/45 bg-muted/15 py-5 pl-4 pr-3 shadow-sm md:border-l-2 md:border-primary/15 md:bg-transparent md:py-6 md:pl-3 md:pr-4 md:shadow-none md:rounded-none',
+      'max-w-4xl rounded-r-2xl bg-muted/15 py-5 pl-4 pr-3 md:border-l-2 md:border-primary/15 md:rounded-none md:bg-transparent md:py-6 md:pl-3 md:pr-4',
     (readingMode === 'standard' || !readingMode) && 'max-w-4xl px-4 py-6'
   )
   const [continuousToolbarOpen, setContinuousToolbarOpen] = useState(false)
