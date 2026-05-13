@@ -18,7 +18,11 @@ interface UserPreferences {
   lineHeight: number
   fontFamily: string
   readingMode: string
-  
+  /** One flowing paragraph per chapter (Bible reader); study tools stay available via toolbar. */
+  continuousReading: boolean
+  /** When true, Flow mode hides superscript verse numbers (Settings verse numbers must also be on to show them). */
+  flowHideVerseNumbers: boolean
+
   // Bible settings
   bibleVersion: string
   verseNumbersVisible: boolean
@@ -64,6 +68,8 @@ const defaultPreferences: UserPreferences = {
   lineHeight: 1.6,
   fontFamily: 'inter',
   readingMode: 'standard',
+  continuousReading: false,
+  flowHideVerseNumbers: false,
   bibleVersion: 'ESV',
   verseNumbersVisible: true,
   crossReferencesVisible: false,

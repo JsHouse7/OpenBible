@@ -19,6 +19,8 @@ export interface UserPreferences {
   studyNotes?: any[]
   verseNumbers?: boolean
   readingMode?: string
+  continuousReading?: boolean
+  flowHideVerseNumbers?: boolean
   highlightEnabled?: boolean
   autoSave?: boolean
   notifications?: boolean

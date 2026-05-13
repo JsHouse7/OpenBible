@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from "@/components/ui/Button"
 import { VerseComponent } from '@/components/VerseComponent'
+import { VerseStudyToolbar } from '@/components/VerseStudyToolbar'
 import { ScriptureHeader } from '@/components/ScriptureHeader'
 import { NoteModal } from '@/components/NoteModal'
 import { useAnimations } from '@/components/AnimationProvider'
@@ -53,14 +54,20 @@ export function BibleReader({
   const { user } = useAuth()
   const { getBibleTextClasses } = useFonts()
   const { preferences: readerPrefs } = useUserPreferences()
-  const readingModeClass =
-    readerPrefs.readingMode === 'focus'
-      ? 'max-w-2xl'
-      : readerPrefs.readingMode === 'meditation'
-        ? 'max-w-xl opacity-[0.98]'
-        : readerPrefs.readingMode === 'study'
-          ? 'border-l-2 border-primary/15 pl-3 -ml-1'
-          : ''
+  const readingMode = readerPrefs.readingMode || 'standard'
+  const continuousReading = readerPrefs.continuousReading
+  /** Stronger cues on small screens (md: restores calmer desktop). */
+  const readingModeClass = cn(
+    'mx-auto w-full',
+    readingMode === 'focus' &&
+      'max-w-4xl rounded-2xl border border-border/50 bg-muted/25 px-5 py-6 shadow-sm ring-1 ring-border/60 sm:px-6 md:max-w-2xl md:border-0 md:bg-transparent md:px-4 md:py-6 md:shadow-none md:ring-0 md:rounded-none',
+    readingMode === 'meditation' &&
+      'max-w-4xl rounded-2xl border border-border/50 bg-gradient-to-b from-muted/50 via-muted/25 to-transparent px-6 py-7 leading-[1.85] sm:px-8 md:max-w-xl md:border-0 md:bg-none md:from-transparent md:via-transparent md:to-transparent md:px-4 md:py-6 md:leading-normal',
+    readingMode === 'study' &&
+      'max-w-4xl rounded-r-2xl border-l-[6px] border-primary/45 bg-muted/15 py-5 pl-4 pr-3 shadow-sm md:border-l-2 md:border-primary/15 md:bg-transparent md:py-6 md:pl-3 md:pr-4 md:shadow-none md:rounded-none',
+    (readingMode === 'standard' || !readingMode) && 'max-w-4xl px-4 py-6'
+  )
+  const [continuousToolbarOpen, setContinuousToolbarOpen] = useState(false)
   const [selectedVerse, setSelectedVerse] = useState<BibleVerse | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [highlights, setHighlights] = useState<Set<string>>(new Set())
@@ -99,6 +106,11 @@ export function BibleReader({
   useEffect(() => {
     focusHandledKeyRef.current = null
   }, [book, chapter, selectedVersion.abbreviation])
+
+  useEffect(() => {
+    setContinuousToolbarOpen(false)
+    setSelectedVerse(null)
+  }, [book, chapter, continuousReading])
 
   useEffect(() => {
     if (focusVerse === undefined || loading || verses.length === 0) {
@@ -200,6 +212,11 @@ export function BibleReader({
   const handleVerseSelect = (verse: BibleVerse) => {
     setSelectedVerse(verse)
   }
+
+  const dismissContinuousToolbar = useCallback(() => {
+    setContinuousToolbarOpen(false)
+    setSelectedVerse(null)
+  }, [])
 
   const handleAddNote = (verse: BibleVerse) => {
     setNoteVerse(verse)
@@ -465,36 +482,83 @@ export function BibleReader({
         canGoNext={canGoNext}
       />
       
-      <div className={cn('max-w-4xl mx-auto px-4 py-6', readingModeClass)}>
-
-        {/* Verses */}
-        <div className={cn("space-y-1 reading-container", getBibleTextClasses(), getTransitionClass('default', 'verse') && "animate-in fade-in-0 slide-in-from-bottom-4 duration-500")}>
-          {verses.map((verse, index) => (
-            <div 
-              key={verse.id} 
+      <div className={cn(readingModeClass, 'max-md:pb-32 md:pb-6')}>
+        {continuousReading ? (
+          <>
+            <p
               className={cn(
-                getTransitionClass('default', 'verse') && "animate-in fade-in-0 slide-in-from-left-4"
+                'reading-container text-justify hyphens-auto sm:text-left sm:hyphens-none',
+                getBibleTextClasses(),
+                getTransitionClass('default', 'verse') && 'animate-in fade-in-0 slide-in-from-bottom-4 duration-500',
+                'leading-[1.78] tracking-[0.01em] text-foreground md:leading-relaxed'
               )}
-              style={{ 
-                animationDelay: getTransitionClass('default', 'verse') ? `${index * 50}ms` : '0ms', 
-                animationDuration: getTransitionClass('default', 'verse') ? '300ms' : '0ms' 
-              }}
             >
-              <VerseComponent
-                verse={verse}
-                isSelected={selectedVerse?.id === verse.id}
-                hasNote={notes.some((note) => note.verseId === verse.id)}
-                isHighlighted={highlights.has(verse.id)}
-                isBookmarked={bookmarks.has(verse.id)}
-                onSelect={handleVerseSelect}
-                onAddNote={handleAddNote}
-                onToggleHighlight={(color) => handleToggleHighlight(verse, color)}
-                highlightColor={highlightColors.get(`${book}-${chapter}-${verse.verse}`) || 'yellow'}
-                onToggleBookmark={handleToggleBookmark}
+              {verses.map((verse) => (
+                <VerseComponent
+                  key={verse.id}
+                  verse={verse}
+                  continuous
+                  isSelected={selectedVerse?.id === verse.id}
+                  hasNote={notes.some((note) => note.verseId === verse.id)}
+                  isHighlighted={highlights.has(verse.id)}
+                  isBookmarked={bookmarks.has(verse.id)}
+                  highlightColor={highlightColors.get(`${book}-${chapter}-${verse.verse}`) || 'yellow'}
+                  onSelect={handleVerseSelect}
+                  onAddNote={handleAddNote}
+                  onToggleHighlight={(color) => void handleToggleHighlight(verse, color)}
+                  onToggleBookmark={handleToggleBookmark}
+                  onContinuousInteraction={() => setContinuousToolbarOpen(true)}
+                />
+              ))}
+            </p>
+            {selectedVerse && continuousToolbarOpen && (
+              <VerseStudyToolbar
+                variant="chapter"
+                verse={selectedVerse}
+                hasNote={notes.some((note) => note.verseId === selectedVerse.id)}
+                isHighlighted={highlights.has(selectedVerse.id)}
+                isBookmarked={bookmarks.has(selectedVerse.id)}
+                highlightAllowed={readerPrefs.highlightEnabled}
+                onAddNote={() => handleAddNote(selectedVerse)}
+                onToggleHighlight={(color) => void handleToggleHighlight(selectedVerse, color ?? 'yellow')}
+                onToggleBookmark={() => void handleToggleBookmark(selectedVerse)}
+                onDismiss={dismissContinuousToolbar}
               />
-            </div>
-          ))}
-        </div>
+            )}
+          </>
+        ) : (
+          <div
+            className={cn(
+              'reading-container space-y-1',
+              getBibleTextClasses(),
+              getTransitionClass('default', 'verse') && 'animate-in fade-in-0 slide-in-from-bottom-4 duration-500'
+            )}
+          >
+            {verses.map((verse, index) => (
+              <div
+                key={verse.id}
+                className={cn(getTransitionClass('default', 'verse') && 'animate-in fade-in-0 slide-in-from-left-4')}
+                style={{
+                  animationDelay: getTransitionClass('default', 'verse') ? `${index * 50}ms` : '0ms',
+                  animationDuration: getTransitionClass('default', 'verse') ? '300ms' : '0ms',
+                }}
+              >
+                <VerseComponent
+                  verse={verse}
+                  isSelected={selectedVerse?.id === verse.id}
+                  hasNote={notes.some((note) => note.verseId === verse.id)}
+                  isHighlighted={highlights.has(verse.id)}
+                  isBookmarked={bookmarks.has(verse.id)}
+                  onSelect={handleVerseSelect}
+                  onAddNote={handleAddNote}
+                  onToggleHighlight={(color) => void handleToggleHighlight(verse, color)}
+                  highlightColor={highlightColors.get(`${book}-${chapter}-${verse.verse}`) || 'yellow'}
+                  onToggleBookmark={handleToggleBookmark}
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
         {verses.length === 0 && !loading && (
           <div className="text-center py-12 text-muted-foreground">
@@ -517,6 +581,42 @@ export function BibleReader({
         }}
         onSave={handleSaveNote}
       />
+
+      <nav
+        className="fixed left-0 right-0 z-[28] flex items-center justify-center border-t bg-background/95 px-4 py-2.5 shadow-[0_-8px_24px_rgba(0,0,0,0.07)] backdrop-blur-md supports-[backdrop-filter]:bg-background/85 md:hidden"
+        style={{
+          bottom: 'max(5rem, calc(4.25rem + env(safe-area-inset-bottom, 0px)))',
+        }}
+        aria-label="Chapter navigation"
+      >
+        <div className="mx-auto flex w-full max-w-md items-center justify-between gap-6">
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-12 min-w-[3.25rem] shrink-0 px-0"
+            onClick={handlePreviousChapter}
+            disabled={!canGoPrevious}
+            data-testid="bible-chapter-prev-mobile"
+            aria-label="Previous chapter"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+          <span className="truncate text-center text-sm font-medium text-muted-foreground">
+            {book} {chapter}
+          </span>
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-12 min-w-[3.25rem] shrink-0 px-0"
+            onClick={handleNextChapter}
+            disabled={!canGoNext}
+            data-testid="bible-chapter-next-mobile"
+            aria-label="Next chapter"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </Button>
+        </div>
+      </nav>
     </>
   )
 }

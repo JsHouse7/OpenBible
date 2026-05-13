@@ -373,7 +373,7 @@ const Settings = () => {
               <div className="space-y-2">
                 <Label>Reading layout</Label>
                 <p className="text-xs text-muted-foreground">
-                  Adjusts column width and emphasis in the Bible reader
+                  Column width, padding, and framing (more obvious on phones; calmer on larger screens)
                 </p>
                 <Select
                   value={readingMode}
