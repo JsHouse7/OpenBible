@@ -33,7 +33,7 @@ export function ScriptureHeader({
   
   return (
     <div
-      className="sticky top-16 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b"
+      className="sticky top-14 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:top-16"
       data-testid="bible-scripture-header"
     >
       <div className="max-w-4xl mx-auto px-4 py-3">

@@ -41,7 +41,7 @@ function BiblePageInner() {
   const [isLoading, setIsLoading] = useState(true)
   const [showBookSelector, setShowBookSelector] = useState(false)
   const [showChapterSelector, setShowChapterSelector] = useState(false)
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { preferences } = useUserPreferences()
 
   const persistReadingProgress = useCallback(
@@ -106,6 +106,13 @@ function BiblePageInner() {
         return
       }
 
+      // Avoid treating a signed-in user as a guest before Supabase restores the session:
+      // that would default to John 3, replace the URL, and then the URL branch would skip DB progress forever.
+      if (authLoading) {
+        if (!cancelled) setIsLoading(true)
+        return
+      }
+
       if (!cancelled) setIsLoading(true)
 
       try {
@@ -161,7 +168,7 @@ function BiblePageInner() {
     return () => {
       cancelled = true
     }
-  }, [user, searchParams, replaceBibleUrl])
+  }, [user, authLoading, searchParams, replaceBibleUrl])
 
   const handleNavigate = (book: string, chapter: number) => {
     setCurrentBook(book)

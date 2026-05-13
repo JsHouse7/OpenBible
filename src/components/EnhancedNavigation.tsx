@@ -122,11 +122,11 @@ const EnhancedNavigation = () => {
   return (
     <>
       {/* Main Navigation Bar */}
-      <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container">
+      <nav className="fixed inset-x-0 top-0 z-50 h-14 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:h-16">
+        <div className="container h-full">
           
           {/* Mobile Layout */}
-          <div className="flex h-14 items-center justify-between md:hidden px-4">
+          <div className="flex h-full items-center justify-between md:hidden px-4">
             {/* Left side - Logo and Menu */}
             <div className="flex items-center gap-3">
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -224,7 +224,7 @@ const EnhancedNavigation = () => {
           </div>
 
           {/* Desktop Layout */}
-          <div className="hidden md:flex h-16 items-center justify-between">
+          <div className="hidden h-full items-center justify-between md:flex">
             {/* Logo and Mobile Menu */}
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
