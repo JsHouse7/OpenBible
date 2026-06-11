@@ -50,6 +50,7 @@ export function ScriptureHeader({
       : preferences.continuousReading && !preferences.verseNumbers
         ? "Numbers off (Settings)"
         : null
+  const wordStudySummary = preferences.lexiconEnabled ? "Word study on" : "Word study off"
 
   return (
     <div
@@ -149,7 +150,7 @@ export function ScriptureHeader({
                 aria-expanded={readerOptionsOpen}
                 aria-controls="bible-reader-options-panel"
                 id="bible-reader-options-trigger"
-                aria-label={`Reader options: ${[flowSummary, numbersInFlowSummary].filter(Boolean).join(", ") || "layout and flow"}`}
+                aria-label={`Reader options: ${[flowSummary, numbersInFlowSummary, wordStudySummary].filter(Boolean).join(", ") || "layout and flow"}`}
               >
                 <SlidersHorizontal
                   className={cn(
@@ -225,6 +226,30 @@ export function ScriptureHeader({
                 </div>
               </div>
             )}
+
+            <div className="flex flex-col gap-2 border-t border-border/40 pt-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <Label htmlFor="lexicon-enabled" className="text-xs font-medium text-foreground sm:text-sm">
+                  Word study
+                </Label>
+                <p className="text-[11px] leading-snug text-muted-foreground sm:text-xs">
+                  <span className="hidden sm:inline">
+                    Tap words for Hebrew/Greek definitions (KJV) or use the verse toolbar on any translation.
+                  </span>
+                  <span className="sm:hidden">Tap words (KJV) or use the verse toolbar.</span>
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center justify-end gap-2 sm:justify-start">
+                <span className="text-xs text-muted-foreground">Off</span>
+                <Switch
+                  id="lexicon-enabled"
+                  checked={preferences.lexiconEnabled}
+                  onCheckedChange={(checked) => updatePreferences({ lexiconEnabled: checked })}
+                  aria-label="Toggle word study and lexicon"
+                />
+                <span className="text-xs text-muted-foreground">On</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
