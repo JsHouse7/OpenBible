@@ -16,7 +16,13 @@ import { cn } from '@/lib/utils'
 import { loadChapterData, COMPLETE_BIBLE_BOOKS } from '@/data/completeBible'
 import { notesService, highlightsService, bookmarksService } from '@/lib/database'
 import { BibleAttribution } from '@/components/BibleAttribution'
+import { WordStudyPanel, type InterlinearVerse } from '@/components/WordStudyPanel'
+import { loadTaggedChapter } from '@/lib/lexiconService'
 import type { BibleVerse } from '@/data/completeBible'
+import type { TaggedToken, WordSelection } from '@/types/lexicon'
+
+/** Translations whose displayed text matches the Strong's-tagged KJV data. */
+const TAGGED_TRANSLATIONS = new Set(['KJV'])
 
 interface Note {
   id: string
@@ -75,6 +81,9 @@ export function BibleReader({
   const [highlightColors, setHighlightColors] = useState<Map<string, string>>(new Map())
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
   const [noteVerse, setNoteVerse] = useState<BibleVerse | null>(null)
+  const [taggedVerses, setTaggedVerses] = useState<Map<number, TaggedToken[]> | null>(null)
+  const [wordSelection, setWordSelection] = useState<WordSelection | null>(null)
+  const [interlinearVerse, setInterlinearVerse] = useState<InterlinearVerse | null>(null)
   const focusHandledKeyRef = useRef<string | null>(null)
 
   /** After next/previous chapter via header controls, scroll to top once props update (window is the scroll root). */
@@ -106,6 +115,58 @@ export function BibleReader({
   useEffect(() => {
     focusHandledKeyRef.current = null
   }, [book, chapter, selectedVersion.abbreviation])
+
+  // Load Strong's-tagged tokens for inline word study (tagged translations only)
+  const lexiconInlineActive =
+    readerPrefs.lexiconEnabled &&
+    readerPrefs.lexiconInlineWords &&
+    TAGGED_TRANSLATIONS.has(selectedVersion.abbreviation)
+
+  useEffect(() => {
+    if (!lexiconInlineActive) {
+      setTaggedVerses(null)
+      return
+    }
+    let cancelled = false
+    loadTaggedChapter(book, chapter).then((tagged) => {
+      if (cancelled) return
+      if (!tagged) {
+        setTaggedVerses(null)
+        return
+      }
+      setTaggedVerses(new Map(tagged.map((v) => [v.verse, v.tokens])))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [book, chapter, lexiconInlineActive])
+
+  // Close the word-study panel when navigating
+  useEffect(() => {
+    setWordSelection(null)
+    setInterlinearVerse(null)
+  }, [book, chapter, selectedVersion.abbreviation])
+
+  const handleWordSelect = useCallback(
+    (strongsIds: string[], surface: string, verse: BibleVerse) => {
+      setWordSelection({ strongsIds, surface, book, chapter, verse: verse.verse })
+    },
+    [book, chapter]
+  )
+
+  // "Word Study" toolbar action: opens the tagged-KJV interlinear view for a
+  // verse, giving every translation access to original-language data.
+  const handleVerseWordStudy = useCallback(
+    async (verse: BibleVerse) => {
+      const tagged = await loadTaggedChapter(book, chapter)
+      const tokens = tagged?.find((v) => v.verse === verse.verse)?.tokens ?? null
+      setWordSelection(null)
+      setInterlinearVerse({ book, chapter, verse: verse.verse, tokens })
+    },
+    [book, chapter]
+  )
+
+  const lexiconToolbarEnabled = readerPrefs.lexiconEnabled
 
   useEffect(() => {
     setContinuousToolbarOpen(false)
@@ -508,6 +569,9 @@ export function BibleReader({
                   onToggleHighlight={(color) => void handleToggleHighlight(verse, color)}
                   onToggleBookmark={handleToggleBookmark}
                   onContinuousInteraction={() => setContinuousToolbarOpen(true)}
+                  taggedTokens={taggedVerses?.get(verse.verse)}
+                  onWordSelect={handleWordSelect}
+                  onWordStudy={lexiconToolbarEnabled ? handleVerseWordStudy : undefined}
                 />
               ))}
             </p>
@@ -522,6 +586,9 @@ export function BibleReader({
                 onAddNote={() => handleAddNote(selectedVerse)}
                 onToggleHighlight={(color) => void handleToggleHighlight(selectedVerse, color ?? 'yellow')}
                 onToggleBookmark={() => void handleToggleBookmark(selectedVerse)}
+                onWordStudy={
+                  lexiconToolbarEnabled ? () => void handleVerseWordStudy(selectedVerse) : undefined
+                }
                 onDismiss={dismissContinuousToolbar}
               />
             )}
@@ -554,6 +621,9 @@ export function BibleReader({
                   onToggleHighlight={(color) => void handleToggleHighlight(verse, color)}
                   highlightColor={highlightColors.get(`${book}-${chapter}-${verse.verse}`) || 'yellow'}
                   onToggleBookmark={handleToggleBookmark}
+                  taggedTokens={taggedVerses?.get(verse.verse)}
+                  onWordSelect={handleWordSelect}
+                  onWordStudy={lexiconToolbarEnabled ? handleVerseWordStudy : undefined}
                 />
               </div>
             ))}
@@ -569,6 +639,28 @@ export function BibleReader({
         {/* Attribution */}
         <BibleAttribution variant="footer" className="mt-8" />
       </div>
+
+      {/* Word study panel (lexicon) */}
+      <WordStudyPanel
+        selection={wordSelection}
+        interlinear={interlinearVerse}
+        onWordSelect={(strongsIds, surface) => {
+          if (interlinearVerse) {
+            setWordSelection({
+              strongsIds,
+              surface,
+              book: interlinearVerse.book,
+              chapter: interlinearVerse.chapter,
+              verse: interlinearVerse.verse,
+            })
+          }
+        }}
+        onBackToVerse={() => setWordSelection(null)}
+        onClose={() => {
+          setWordSelection(null)
+          setInterlinearVerse(null)
+        }}
+      />
 
       {/* Note Modal */}
       <NoteModal

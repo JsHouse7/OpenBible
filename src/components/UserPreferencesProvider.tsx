@@ -38,6 +38,14 @@ interface UserPreferences {
   commentaryVisible: boolean
   concordanceVisible: boolean
   dictionaryVisible: boolean
+
+  // Lexicon / word study settings
+  /** Master switch for the Strong's lexicon word-study feature. */
+  lexiconEnabled: boolean
+  /** Render words as clickable inline on Strong's-tagged translations (KJV). */
+  lexiconInlineWords: boolean
+  /** Show transliteration/pronunciation detail in the word-study card. */
+  lexiconShowTransliteration: boolean
   
   // Privacy settings
   shareReadingProgress: boolean
@@ -80,6 +88,9 @@ const defaultPreferences: UserPreferences = {
   commentaryVisible: false,
   concordanceVisible: false,
   dictionaryVisible: false,
+  lexiconEnabled: true,
+  lexiconInlineWords: true,
+  lexiconShowTransliteration: true,
   shareReadingProgress: true,
   allowDataCollection: true,
   verseNumbers: true,

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Bookmark, MessageSquare, Highlighter, BookmarkCheck } from "lucide-react"
+import { Bookmark, MessageSquare, Highlighter, BookmarkCheck, Languages } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
 import { useAnimations } from "@/components/AnimationProvider"
@@ -16,6 +16,8 @@ export interface VerseStudyToolbarProps {
   onAddNote: () => void
   onToggleHighlight: (color?: string) => void
   onToggleBookmark: () => void
+  /** Opens the original-language word study panel for this verse (lexicon feature). */
+  onWordStudy?: () => void
   onDismiss?: () => void
   /** Wider layout when shown below a full chapter (continuous reading). */
   variant?: "default" | "chapter"
@@ -30,6 +32,7 @@ export function VerseStudyToolbar({
   onAddNote,
   onToggleHighlight,
   onToggleBookmark,
+  onWordStudy,
   onDismiss,
   variant = "default",
 }: VerseStudyToolbarProps) {
@@ -160,6 +163,23 @@ export function VerseStudyToolbar({
         {isBookmarked ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
         {isBookmarked ? "Remove Bookmark" : "Bookmark"}
       </Button>
+
+      {onWordStudy && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onWordStudy}
+          className={cn(
+            "flex h-8 items-center gap-2 border border-purple-200/50 bg-purple-50 px-3 text-sm text-purple-700 dark:border-purple-800/30 dark:bg-purple-950/20 dark:text-purple-300",
+            isAnimationEnabled("button") && "hover:bg-purple-100 dark:hover:bg-purple-950/50",
+            isAnimationEnabled("button") && "hover:scale-105 active:scale-95",
+            getTransitionClass("fast", "button")
+          )}
+        >
+          <Languages className="h-4 w-4" />
+          Word Study
+        </Button>
+      )}
 
       <span className="w-full text-xs text-muted-foreground sm:ml-auto sm:w-auto">
         {verse.book} {verse.chapter}:{verse.verse}

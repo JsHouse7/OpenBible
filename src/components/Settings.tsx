@@ -84,6 +84,9 @@ const Settings = () => {
     verseNumbers,
     highlightEnabled,
     autoSave,
+    lexiconEnabled,
+    lexiconInlineWords,
+    lexiconShowTransliteration,
     notifications,
     audioEnabled,
     dailyReadingReminders,
@@ -776,6 +779,54 @@ const Settings = () => {
                       <Switch
                         checked={audioEnabled}
                         onCheckedChange={(checked) => updatePreferences({ audioEnabled: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label>Word Study / Lexicon</Label>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm">Enable Word Study</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Original Hebrew/Greek definitions with Strong&apos;s numbers and BibleHub links
+                        </p>
+                      </div>
+                      <Switch
+                        checked={lexiconEnabled}
+                        onCheckedChange={(checked) => updatePreferences({ lexiconEnabled: checked })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm">Clickable Words While Reading</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Tap any word in the KJV to open its original-language entry
+                        </p>
+                      </div>
+                      <Switch
+                        checked={lexiconInlineWords}
+                        disabled={!lexiconEnabled}
+                        onCheckedChange={(checked) => updatePreferences({ lexiconInlineWords: checked })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm">Show Transliteration</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Include pronunciation guides in word-study cards
+                        </p>
+                      </div>
+                      <Switch
+                        checked={lexiconShowTransliteration}
+                        disabled={!lexiconEnabled}
+                        onCheckedChange={(checked) => updatePreferences({ lexiconShowTransliteration: checked })}
                       />
                     </div>
                   </div>

@@ -49,3 +49,6 @@ next-env.d.ts
 
 # Exclude alternative frontend implementation
 /openbible-frontend
+
+# Lexicon build source data (downloaded by scripts/build-lexicon-data.mjs)
+/data-sources

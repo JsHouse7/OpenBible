@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "migrate:bible": "node scripts/migrate-bible-data.js",
+    "build:lexicon": "node scripts/build-lexicon-data.mjs",
     "deploy": "node deploy.js",
     "deploy:vercel": "vercel --prod",
     "test:e2e": "playwright test"

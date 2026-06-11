@@ -7,7 +7,9 @@ import { useAnimations } from "@/components/AnimationProvider"
 import { useFonts } from "@/hooks/useFonts"
 import { useUserPreferences } from "@/components/UserPreferencesProvider"
 import { VerseStudyToolbar } from "@/components/VerseStudyToolbar"
+import { TaggedVerseText } from "@/components/TaggedVerseText"
 import type { BibleVerse } from "@/data/completeBible"
+import type { TaggedToken } from "@/types/lexicon"
 
 interface VerseComponentProps {
   verse: BibleVerse
@@ -24,6 +26,12 @@ interface VerseComponentProps {
   continuous?: boolean
   /** Called when the user activates a verse in continuous layout (e.g. to open the study toolbar). */
   onContinuousInteraction?: (verse: BibleVerse) => void
+  /** Strong's-tagged tokens for this verse; enables clickable word study when provided with onWordSelect. */
+  taggedTokens?: TaggedToken[]
+  /** Called when the user activates a tagged word/phrase. */
+  onWordSelect?: (strongsIds: string[], surface: string, verse: BibleVerse) => void
+  /** Shows a "Word Study" action in the study toolbar (original-language panel). */
+  onWordStudy?: (verse: BibleVerse) => void
 }
 
 function getInlineHighlightStyles(color: string) {
@@ -50,6 +58,9 @@ export function VerseComponent({
   onToggleBookmark,
   continuous = false,
   onContinuousInteraction,
+  taggedTokens,
+  onWordSelect,
+  onWordStudy,
 }: VerseComponentProps) {
   const [showActions, setShowActions] = useState(false)
   const { getTransitionClass, isAnimationEnabled } = useAnimations()
@@ -73,6 +84,17 @@ export function VerseComponent({
       setShowActions(true)
     }
   }
+
+  // Word-level study rendering (Strong's-tagged text) when data + handler exist
+  const verseText =
+    taggedTokens && onWordSelect ? (
+      <TaggedVerseText
+        tokens={taggedTokens}
+        onWordSelect={(strongsIds, surface) => onWordSelect(strongsIds, surface, verse)}
+      />
+    ) : (
+      verse.text
+    )
 
   const getHighlightStyles = (color: string) => {
     const colorMap = {
@@ -127,7 +149,7 @@ export function VerseComponent({
               {isBookmarked && "Bookmarked."}
             </span>
           )}
-          <span className={cn("text-foreground", getBibleTextClasses())}>{verse.text}</span>
+          <span className={cn("text-foreground", getBibleTextClasses())}>{verseText}</span>
         </span>{" "}
       </span>
     )
@@ -171,7 +193,7 @@ export function VerseComponent({
         </span>
 
         <div className="min-w-0 flex-1">
-          <p className={cn("text-foreground", getBibleTextClasses())}>{verse.text}</p>
+          <p className={cn("text-foreground", getBibleTextClasses())}>{verseText}</p>
 
           <div className="mt-1 flex items-center gap-1">
             {hasNote && <MessageSquare className="h-3 w-3 text-blue-500" aria-label="Has note" />}
@@ -200,6 +222,14 @@ export function VerseComponent({
             setShowActions(false)
             onToggleBookmark(verse)
           }}
+          onWordStudy={
+            onWordStudy
+              ? () => {
+                  setShowActions(false)
+                  onWordStudy(verse)
+                }
+              : undefined
+          }
         />
       )}
     </div>
