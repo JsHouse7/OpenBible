@@ -1,14 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { Bookmark, MessageSquare, Highlighter, BookmarkCheck, Languages } from "lucide-react"
+import { Bookmark, MessageSquare, Highlighter, BookmarkCheck, Languages, Copy } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
 import { useAnimations } from "@/components/AnimationProvider"
+import { formatVerseRangeLabel } from "@/lib/verseSelection"
 import type { BibleVerse } from "@/data/completeBible"
 
 export interface VerseStudyToolbarProps {
-  verse: BibleVerse
+  verses: BibleVerse[]
   hasNote: boolean
   isHighlighted: boolean
   isBookmarked: boolean
@@ -16,6 +17,7 @@ export interface VerseStudyToolbarProps {
   onAddNote: () => void
   onToggleHighlight: (color?: string) => void
   onToggleBookmark: () => void
+  onCopy: () => void
   /** Opens the original-language word study panel for this verse (lexicon feature). */
   onWordStudy?: () => void
   onDismiss?: () => void
@@ -24,7 +26,7 @@ export interface VerseStudyToolbarProps {
 }
 
 export function VerseStudyToolbar({
-  verse,
+  verses,
   hasNote,
   isHighlighted,
   isBookmarked,
@@ -32,12 +34,15 @@ export function VerseStudyToolbar({
   onAddNote,
   onToggleHighlight,
   onToggleBookmark,
+  onCopy,
   onWordStudy,
   onDismiss,
   variant = "default",
 }: VerseStudyToolbarProps) {
   const [showColorPicker, setShowColorPicker] = useState(false)
   const { getTransitionClass, isAnimationEnabled } = useAnimations()
+  const referenceLabel = formatVerseRangeLabel(verses)
+  const multiVerse = verses.length > 1
 
   const highlightColors = [
     { name: "Yellow", value: "yellow", bg: "bg-yellow-200" },
@@ -84,6 +89,21 @@ export function VerseStudyToolbar({
       >
         <MessageSquare className="h-4 w-4" />
         {hasNote ? "Edit Note" : "Add Note"}
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onCopy}
+        className={cn(
+          "flex h-8 items-center gap-2 border border-gray-200/50 bg-gray-50 px-3 text-sm text-gray-700 dark:border-gray-700/30 dark:bg-gray-900/40 dark:text-gray-300",
+          isAnimationEnabled("button") && "hover:bg-gray-100 dark:hover:bg-gray-800/60",
+          isAnimationEnabled("button") && "hover:scale-105 active:scale-95",
+          getTransitionClass("fast", "button")
+        )}
+      >
+        <Copy className="h-4 w-4" />
+        Copy
       </Button>
 
       <div className="relative">
@@ -182,9 +202,17 @@ export function VerseStudyToolbar({
       )}
 
       <span className="w-full text-xs text-muted-foreground sm:ml-auto sm:w-auto">
-        {verse.book} {verse.chapter}:{verse.verse}
+        {referenceLabel}
+        {multiVerse && (
+          <span className="ml-1 text-muted-foreground/80">({verses.length} verses)</span>
+        )}
       </span>
       </div>
+      {multiVerse && (
+        <p className="text-xs text-muted-foreground">
+          Tip: Shift+click for a range, Ctrl+click to add or remove verses.
+        </p>
+      )}
       {onDismiss && (
         <Button variant="outline" size="sm" className="self-end text-xs" onClick={onDismiss}>
           Done

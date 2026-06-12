@@ -1,12 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import type { MouseEvent } from "react"
 import { BookmarkCheck, Highlighter, MessageSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAnimations } from "@/components/AnimationProvider"
 import { useFonts } from "@/hooks/useFonts"
 import { useUserPreferences } from "@/components/UserPreferencesProvider"
-import { VerseStudyToolbar } from "@/components/VerseStudyToolbar"
 import { TaggedVerseText } from "@/components/TaggedVerseText"
 import type { BibleVerse } from "@/data/completeBible"
 import type { TaggedToken } from "@/types/lexicon"
@@ -18,10 +17,7 @@ interface VerseComponentProps {
   isHighlighted: boolean
   isBookmarked: boolean
   highlightColor?: string
-  onSelect: (verse: BibleVerse) => void
-  onAddNote: (verse: BibleVerse) => void
-  onToggleHighlight: (color?: string) => void
-  onToggleBookmark: (verse: BibleVerse) => void
+  onSelect: (verse: BibleVerse, event: MouseEvent) => void
   /** Flowing chapter text; study actions are shown by the parent below the chapter. */
   continuous?: boolean
   /** Called when the user activates a verse in continuous layout (e.g. to open the study toolbar). */
@@ -30,8 +26,6 @@ interface VerseComponentProps {
   taggedTokens?: TaggedToken[]
   /** Called when the user activates a tagged word/phrase. */
   onWordSelect?: (strongsIds: string[], surface: string, verse: BibleVerse) => void
-  /** Shows a "Word Study" action in the study toolbar (original-language panel). */
-  onWordStudy?: (verse: BibleVerse) => void
 }
 
 function getInlineHighlightStyles(color: string) {
@@ -53,39 +47,25 @@ export function VerseComponent({
   isBookmarked,
   highlightColor = "yellow",
   onSelect,
-  onAddNote,
-  onToggleHighlight,
-  onToggleBookmark,
   continuous = false,
   onContinuousInteraction,
   taggedTokens,
   onWordSelect,
-  onWordStudy,
 }: VerseComponentProps) {
-  const [showActions, setShowActions] = useState(false)
   const { getTransitionClass, isAnimationEnabled } = useAnimations()
   const { getBibleTextClasses, getUITextClasses } = useFonts()
   const { preferences } = useUserPreferences()
   const showVerseNumbers = preferences.verseNumbers
   const showFlowVerseNumbers =
     preferences.verseNumbers && !(preferences.flowHideVerseNumbers ?? false)
-  const highlightAllowed = preferences.highlightEnabled
 
-  const handleVerseClick = () => {
+  const handleVerseClick = (event: MouseEvent) => {
+    onSelect(verse, event)
     if (continuous) {
-      onSelect(verse)
       onContinuousInteraction?.(verse)
-      return
-    }
-    if (isSelected) {
-      setShowActions(!showActions)
-    } else {
-      onSelect(verse)
-      setShowActions(true)
     }
   }
 
-  // Word-level study rendering (Strong's-tagged text) when data + handler exist
   const verseText =
     taggedTokens && onWordSelect ? (
       <TaggedVerseText
@@ -119,7 +99,8 @@ export function VerseComponent({
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault()
-              handleVerseClick()
+              onSelect(verse, e as unknown as MouseEvent)
+              onContinuousInteraction?.(verse)
             }
           }}
           className={cn(
@@ -130,6 +111,7 @@ export function VerseComponent({
             isHighlighted && getInlineHighlightStyles(highlightColor)
           )}
           aria-label={`Verse ${verse.verse}: ${verse.text}`}
+          aria-pressed={isSelected}
         >
           {showFlowVerseNumbers && (
             <sup
@@ -176,10 +158,11 @@ export function VerseComponent({
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault()
-            handleVerseClick()
+            onSelect(verse, e as unknown as MouseEvent)
           }
         }}
         aria-label={`Verse ${verse.verse}: ${verse.text}`}
+        aria-pressed={isSelected}
       >
         <span
           className={cn(
@@ -202,36 +185,6 @@ export function VerseComponent({
           </div>
         </div>
       </div>
-
-      {isSelected && showActions && (
-        <VerseStudyToolbar
-          verse={verse}
-          hasNote={hasNote}
-          isHighlighted={isHighlighted}
-          isBookmarked={isBookmarked}
-          highlightAllowed={highlightAllowed}
-          onAddNote={() => {
-            setShowActions(false)
-            onAddNote(verse)
-          }}
-          onToggleHighlight={(color) => {
-            onToggleHighlight(color)
-            setShowActions(false)
-          }}
-          onToggleBookmark={() => {
-            setShowActions(false)
-            onToggleBookmark(verse)
-          }}
-          onWordStudy={
-            onWordStudy
-              ? () => {
-                  setShowActions(false)
-                  onWordStudy(verse)
-                }
-              : undefined
-          }
-        />
-      )}
     </div>
   )
 }

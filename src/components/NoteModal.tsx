@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Textarea } from "@/components/ui/textarea"
 import { useAnimations } from "@/components/AnimationProvider"
 import { cn } from "@/lib/utils"
+import { formatVerseRangeLabel, getCombinedVerseText } from "@/lib/verseSelection"
 import type { BibleVerse } from "@/data/completeBible"
 
 interface Note {
@@ -19,16 +20,19 @@ interface Note {
 }
 
 interface NoteModalProps {
-  verse: BibleVerse | null
+  verses: BibleVerse[]
   existingNote?: Note
   isOpen: boolean
   onClose: () => void
   onSave: (noteText: string) => void
 }
 
-export function NoteModal({ verse, existingNote, isOpen, onClose, onSave }: NoteModalProps) {
+export function NoteModal({ verses, existingNote, isOpen, onClose, onSave }: NoteModalProps) {
   const [noteText, setNoteText] = useState("")
   const { getTransitionClass } = useAnimations()
+  const primaryVerse = verses[0] ?? null
+  const referenceLabel = formatVerseRangeLabel(verses)
+  const combinedText = getCombinedVerseText(verses)
 
   useEffect(() => {
     if (isOpen && existingNote) {
@@ -51,7 +55,7 @@ export function NoteModal({ verse, existingNote, isOpen, onClose, onSave }: Note
     onClose()
   }
 
-  if (!isOpen || !verse) {
+  if (!isOpen || !primaryVerse) {
     return null
   }
 
@@ -71,13 +75,13 @@ export function NoteModal({ verse, existingNote, isOpen, onClose, onSave }: Note
       >
         <CardHeader>
           <CardTitle className="text-lg">
-            {existingNote ? "Edit Note" : "Add Note"} - {verse.book} {verse.chapter}:{verse.verse}
+            {existingNote ? "Edit Note" : "Add Note"} - {referenceLabel}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="p-3 bg-muted/50 rounded-md border">
             <p className="text-sm text-muted-foreground font-serif leading-relaxed">
-              "{verse.text}"
+              &ldquo;{combinedText}&rdquo;
             </p>
           </div>
           
@@ -121,4 +125,4 @@ export function NoteModal({ verse, existingNote, isOpen, onClose, onSave }: Note
       </Card>
     </div>
   )
-} 
+}

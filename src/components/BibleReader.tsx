@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, type MouseEvent } from 'react'
+import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from "@/components/ui/Button"
 import { VerseComponent } from '@/components/VerseComponent'
@@ -20,6 +21,12 @@ import { WordStudyPanel, type InterlinearVerse } from '@/components/WordStudyPan
 import { loadTaggedChapter } from '@/lib/lexiconService'
 import type { BibleVerse } from '@/data/completeBible'
 import type { TaggedToken, WordSelection } from '@/types/lexicon'
+import {
+  formatVersesForCopy,
+  isVerseInSelection,
+  sortVersesByNumber,
+  updateVerseSelection,
+} from '@/lib/verseSelection'
 
 /** Translations whose displayed text matches the Strong's-tagged KJV data. */
 const TAGGED_TRANSLATIONS = new Set(['KJV'])
@@ -73,14 +80,15 @@ export function BibleReader({
       'max-w-4xl rounded-r-2xl bg-muted/15 py-5 pl-4 pr-3 md:border-l-2 md:border-primary/15 md:rounded-none md:bg-transparent md:py-6 md:pl-3 md:pr-4',
     (readingMode === 'standard' || !readingMode) && 'max-w-4xl px-4 py-6'
   )
-  const [continuousToolbarOpen, setContinuousToolbarOpen] = useState(false)
-  const [selectedVerse, setSelectedVerse] = useState<BibleVerse | null>(null)
+  const [studyToolbarOpen, setStudyToolbarOpen] = useState(false)
+  const [selectedVerses, setSelectedVerses] = useState<BibleVerse[]>([])
+  const [selectionAnchor, setSelectionAnchor] = useState<BibleVerse | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [highlights, setHighlights] = useState<Set<string>>(new Set())
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set())
   const [highlightColors, setHighlightColors] = useState<Map<string, string>>(new Map())
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false)
-  const [noteVerse, setNoteVerse] = useState<BibleVerse | null>(null)
+  const [noteVerses, setNoteVerses] = useState<BibleVerse[]>([])
   const [taggedVerses, setTaggedVerses] = useState<Map<number, TaggedToken[]> | null>(null)
   const [wordSelection, setWordSelection] = useState<WordSelection | null>(null)
   const [interlinearVerse, setInterlinearVerse] = useState<InterlinearVerse | null>(null)
@@ -169,8 +177,9 @@ export function BibleReader({
   const lexiconToolbarEnabled = readerPrefs.lexiconEnabled
 
   useEffect(() => {
-    setContinuousToolbarOpen(false)
-    setSelectedVerse(null)
+    setStudyToolbarOpen(false)
+    setSelectedVerses([])
+    setSelectionAnchor(null)
   }, [book, chapter, continuousReading])
 
   useEffect(() => {
@@ -195,7 +204,9 @@ export function BibleReader({
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       const match = verses.find((v) => v.verse === focusVerse)
       if (match) {
-        setSelectedVerse(match)
+        setSelectedVerses([match])
+        setSelectionAnchor(match)
+        setStudyToolbarOpen(true)
       }
       focusHandledKeyRef.current = key
       onFocusVerseHandled?.()
@@ -270,160 +281,232 @@ export function BibleReader({
     loadUserData()
   }, [user, book, chapter])
 
-  const handleVerseSelect = (verse: BibleVerse) => {
-    setSelectedVerse(verse)
-  }
+  const handleVerseSelect = useCallback((verse: BibleVerse, event: MouseEvent) => {
+    const shiftKey = event.shiftKey
+    const multiSelectKey = event.metaKey || event.ctrlKey
 
-  const dismissContinuousToolbar = useCallback(() => {
-    setContinuousToolbarOpen(false)
-    setSelectedVerse(null)
+    if (!shiftKey && !multiSelectKey) {
+      const isOnlySelected =
+        selectedVerses.length === 1 && selectedVerses[0].id === verse.id
+      if (isOnlySelected) {
+        setStudyToolbarOpen((open) => !open)
+        return
+      }
+    }
+
+    const { selection, anchor } = updateVerseSelection({
+      verse,
+      chapterVerses: verses,
+      currentSelection: selectedVerses,
+      selectionAnchor,
+      shiftKey,
+      multiSelectKey,
+    })
+
+    setSelectedVerses(selection)
+    setSelectionAnchor(anchor)
+    setStudyToolbarOpen(selection.length > 0)
+  }, [selectedVerses, selectionAnchor, verses])
+
+  const dismissStudyToolbar = useCallback(() => {
+    setStudyToolbarOpen(false)
+    setSelectedVerses([])
+    setSelectionAnchor(null)
   }, [])
 
-  const handleAddNote = (verse: BibleVerse) => {
-    setNoteVerse(verse)
+  const handleAddNote = useCallback(() => {
+    if (selectedVerses.length === 0) return
+    setNoteVerses(sortVersesByNumber(selectedVerses))
     setIsNoteModalOpen(true)
-  }
+  }, [selectedVerses])
 
   const handleSaveNote = async (noteText: string) => {
-    if (!noteVerse || !user?.id) return
+    const primaryVerse = noteVerses[0]
+    if (!primaryVerse || !user?.id) return
 
     try {
-      const existingNote = notes.find(note => note.verseId === noteVerse.id)
-      
+      const existingNote = notes.find((note) => note.verseId === primaryVerse.id)
+
       if (existingNote) {
-        // Update existing note
         const { error } = await notesService.saveNote(
           user.id,
           book,
           chapter,
-          noteVerse.verse,
+          primaryVerse.verse,
           noteText
         )
-        
+
         if (error) {
           console.error('Error updating note:', error)
           return
         }
-        
-        const updatedNotes = notes.map(note => 
-          note.verseId === noteVerse.id 
+
+        const updatedNotes = notes.map((note) =>
+          note.verseId === primaryVerse.id
             ? { ...note, text: noteText, timestamp: new Date().toISOString() }
             : note
         )
         setNotes(updatedNotes)
       } else {
-        // Create new note
         const { data, error } = await notesService.saveNote(
           user.id,
           book,
           chapter,
-          noteVerse.verse,
+          primaryVerse.verse,
           noteText
         )
-        
+
         if (error) {
           console.error('Error creating note:', error)
           return
         }
-        
+
         const newNote: Note = {
           id: data?.[0]?.id || Date.now().toString(),
-          verseId: noteVerse.id,
+          verseId: primaryVerse.id,
           text: noteText,
           timestamp: new Date().toISOString(),
           book,
           chapter,
-          verse: noteVerse.verse,
+          verse: primaryVerse.verse,
         }
 
-        const updatedNotes = [...notes, newNote]
-        setNotes(updatedNotes)
+        setNotes([...notes, newNote])
       }
     } catch (error) {
       console.error('Error saving note:', error)
     }
   }
 
-  const handleToggleHighlight = async (verse: BibleVerse, color: string = 'yellow') => {
+  const handleCopyVerses = useCallback(async () => {
+    if (selectedVerses.length === 0) return
+
+    try {
+      await navigator.clipboard.writeText(
+        formatVersesForCopy(selectedVerses, selectedVersion.abbreviation)
+      )
+      toast.success(
+        selectedVerses.length === 1 ? 'Verse copied to clipboard!' : 'Verses copied to clipboard!'
+      )
+    } catch (error) {
+      console.error('Error copying verses:', error)
+      toast.error('Failed to copy verses')
+    }
+  }, [selectedVerses, selectedVersion.abbreviation])
+
+  const handleToggleHighlight = async (color: string = 'yellow') => {
     if (!user?.id) {
       console.warn('User not authenticated, cannot save highlight')
       return
     }
+    if (selectedVerses.length === 0) return
 
-    const key = `${book}-${chapter}-${verse.verse}`
-    const isHighlighted = highlights.has(verse.id)
-    
+    const allHighlighted = selectedVerses.every((verse) => highlights.has(verse.id))
+
     try {
-      if (isHighlighted) {
-        // Remove highlight
-        const { error } = await highlightsService.removeHighlight(user.id, book, chapter, verse.verse)
-        if (error) {
-          console.error('Error removing highlight:', error)
-          return
+      const newHighlights = new Set(highlights)
+      const newColors = new Map(highlightColors)
+
+      for (const verse of selectedVerses) {
+        const key = `${book}-${chapter}-${verse.verse}`
+
+        if (allHighlighted) {
+          const { error } = await highlightsService.removeHighlight(user.id, book, chapter, verse.verse)
+          if (error) {
+            console.error('Error removing highlight:', error)
+            return
+          }
+          newHighlights.delete(verse.id)
+          newColors.delete(key)
+        } else if (!highlights.has(verse.id)) {
+          const { error } = await highlightsService.addHighlight(user.id, book, chapter, verse.verse, color)
+          if (error) {
+            console.error('Error adding highlight:', error)
+            return
+          }
+          newHighlights.add(verse.id)
+          newColors.set(key, color)
         }
-        
-        const newHighlights = new Set(highlights)
-        const newColors = new Map(highlightColors)
-        newHighlights.delete(verse.id)
-        newColors.delete(key)
-        setHighlights(newHighlights)
-        setHighlightColors(newColors)
-      } else {
-        // Add highlight
-        const { error } = await highlightsService.addHighlight(user.id, book, chapter, verse.verse, color)
-        if (error) {
-          console.error('Error adding highlight:', error)
-          return
-        }
-        
-        const newHighlights = new Set(highlights)
-        const newColors = new Map(highlightColors)
-        newHighlights.add(verse.id)
-        newColors.set(key, color)
-        setHighlights(newHighlights)
-        setHighlightColors(newColors)
       }
+
+      setHighlights(newHighlights)
+      setHighlightColors(newColors)
     } catch (error) {
       console.error('Error toggling highlight:', error)
     }
   }
 
-  const handleToggleBookmark = async (verse: BibleVerse) => {
+  const handleToggleBookmark = async () => {
     if (!user?.id) {
       console.warn('User not authenticated, cannot save bookmark')
       return
     }
+    if (selectedVerses.length === 0) return
 
-    const key = `${book}-${chapter}-${verse.verse}`
-    const isBookmarked = bookmarks.has(verse.id)
-    
+    const allBookmarked = selectedVerses.every((verse) => bookmarks.has(verse.id))
+
     try {
-      if (isBookmarked) {
-        // Remove bookmark
-        const { error } = await bookmarksService.removeBookmark(user.id, book, chapter, verse.verse)
-        if (error) {
-          console.error('Error removing bookmark:', error)
-          return
+      const newBookmarks = new Set(bookmarks)
+
+      for (const verse of selectedVerses) {
+        if (allBookmarked) {
+          const { error } = await bookmarksService.removeBookmark(user.id, book, chapter, verse.verse)
+          if (error) {
+            console.error('Error removing bookmark:', error)
+            return
+          }
+          newBookmarks.delete(verse.id)
+        } else if (!bookmarks.has(verse.id)) {
+          const { error } = await bookmarksService.addBookmark(user.id, book, chapter, verse.verse)
+          if (error) {
+            console.error('Error adding bookmark:', error)
+            return
+          }
+          newBookmarks.add(verse.id)
         }
-        
-        const newBookmarks = new Set(bookmarks)
-        newBookmarks.delete(verse.id)
-        setBookmarks(newBookmarks)
-      } else {
-        // Add bookmark
-        const { error } = await bookmarksService.addBookmark(user.id, book, chapter, verse.verse)
-        if (error) {
-          console.error('Error adding bookmark:', error)
-          return
-        }
-        
-        const newBookmarks = new Set(bookmarks)
-        newBookmarks.add(verse.id)
-        setBookmarks(newBookmarks)
       }
+
+      setBookmarks(newBookmarks)
     } catch (error) {
       console.error('Error toggling bookmark:', error)
     }
+  }
+
+  const selectedHasNote =
+    selectedVerses.length === 1 &&
+    notes.some((note) => note.verseId === selectedVerses[0].id)
+  const selectedAllHighlighted =
+    selectedVerses.length > 0 && selectedVerses.every((verse) => highlights.has(verse.id))
+  const selectedAllBookmarked =
+    selectedVerses.length > 0 && selectedVerses.every((verse) => bookmarks.has(verse.id))
+  const noteModalExistingNote =
+    noteVerses.length === 1
+      ? notes.find((note) => note.verseId === noteVerses[0].id)
+      : undefined
+
+  const renderStudyToolbar = (variant: 'default' | 'chapter') => {
+    if (selectedVerses.length === 0 || !studyToolbarOpen) return null
+
+    return (
+      <VerseStudyToolbar
+        variant={variant}
+        verses={sortVersesByNumber(selectedVerses)}
+        hasNote={selectedHasNote}
+        isHighlighted={selectedAllHighlighted}
+        isBookmarked={selectedAllBookmarked}
+        highlightAllowed={readerPrefs.highlightEnabled}
+        onAddNote={handleAddNote}
+        onCopy={() => void handleCopyVerses()}
+        onToggleHighlight={(color) => void handleToggleHighlight(color ?? 'yellow')}
+        onToggleBookmark={() => void handleToggleBookmark()}
+        onWordStudy={
+          lexiconToolbarEnabled && selectedVerses.length === 1
+            ? () => void handleVerseWordStudy(selectedVerses[0])
+            : undefined
+        }
+        onDismiss={variant === 'chapter' ? dismissStudyToolbar : undefined}
+      />
+    )
   }
 
   const getVerseRange = (verses: BibleVerse[]) => {
@@ -559,39 +642,19 @@ export function BibleReader({
                   key={verse.id}
                   verse={verse}
                   continuous
-                  isSelected={selectedVerse?.id === verse.id}
+                  isSelected={isVerseInSelection(verse, selectedVerses)}
                   hasNote={notes.some((note) => note.verseId === verse.id)}
                   isHighlighted={highlights.has(verse.id)}
                   isBookmarked={bookmarks.has(verse.id)}
                   highlightColor={highlightColors.get(`${book}-${chapter}-${verse.verse}`) || 'yellow'}
                   onSelect={handleVerseSelect}
-                  onAddNote={handleAddNote}
-                  onToggleHighlight={(color) => void handleToggleHighlight(verse, color)}
-                  onToggleBookmark={handleToggleBookmark}
-                  onContinuousInteraction={() => setContinuousToolbarOpen(true)}
+                  onContinuousInteraction={() => setStudyToolbarOpen(true)}
                   taggedTokens={taggedVerses?.get(verse.verse)}
                   onWordSelect={handleWordSelect}
-                  onWordStudy={lexiconToolbarEnabled ? handleVerseWordStudy : undefined}
                 />
               ))}
             </p>
-            {selectedVerse && continuousToolbarOpen && (
-              <VerseStudyToolbar
-                variant="chapter"
-                verse={selectedVerse}
-                hasNote={notes.some((note) => note.verseId === selectedVerse.id)}
-                isHighlighted={highlights.has(selectedVerse.id)}
-                isBookmarked={bookmarks.has(selectedVerse.id)}
-                highlightAllowed={readerPrefs.highlightEnabled}
-                onAddNote={() => handleAddNote(selectedVerse)}
-                onToggleHighlight={(color) => void handleToggleHighlight(selectedVerse, color ?? 'yellow')}
-                onToggleBookmark={() => void handleToggleBookmark(selectedVerse)}
-                onWordStudy={
-                  lexiconToolbarEnabled ? () => void handleVerseWordStudy(selectedVerse) : undefined
-                }
-                onDismiss={dismissContinuousToolbar}
-              />
-            )}
+            {renderStudyToolbar('chapter')}
           </>
         ) : (
           <div
@@ -612,21 +675,18 @@ export function BibleReader({
               >
                 <VerseComponent
                   verse={verse}
-                  isSelected={selectedVerse?.id === verse.id}
+                  isSelected={isVerseInSelection(verse, selectedVerses)}
                   hasNote={notes.some((note) => note.verseId === verse.id)}
                   isHighlighted={highlights.has(verse.id)}
                   isBookmarked={bookmarks.has(verse.id)}
                   onSelect={handleVerseSelect}
-                  onAddNote={handleAddNote}
-                  onToggleHighlight={(color) => void handleToggleHighlight(verse, color)}
                   highlightColor={highlightColors.get(`${book}-${chapter}-${verse.verse}`) || 'yellow'}
-                  onToggleBookmark={handleToggleBookmark}
                   taggedTokens={taggedVerses?.get(verse.verse)}
                   onWordSelect={handleWordSelect}
-                  onWordStudy={lexiconToolbarEnabled ? handleVerseWordStudy : undefined}
                 />
               </div>
             ))}
+            {renderStudyToolbar('default')}
           </div>
         )}
 
@@ -664,12 +724,12 @@ export function BibleReader({
 
       {/* Note Modal */}
       <NoteModal
-        verse={noteVerse}
-        existingNote={notes.find(note => note.verseId === noteVerse?.id)}
+        verses={noteVerses}
+        existingNote={noteModalExistingNote}
         isOpen={isNoteModalOpen}
         onClose={() => {
           setIsNoteModalOpen(false)
-          setNoteVerse(null)
+          setNoteVerses([])
         }}
         onSave={handleSaveNote}
       />
