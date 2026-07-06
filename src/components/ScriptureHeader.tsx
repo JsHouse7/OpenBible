@@ -234,9 +234,9 @@ export function ScriptureHeader({
                 </Label>
                 <p className="text-[11px] leading-snug text-muted-foreground sm:text-xs">
                   <span className="hidden sm:inline">
-                    Tap words for Hebrew/Greek definitions (KJV) or use the verse toolbar on any translation.
+                    Tap words for Hebrew/Greek definitions (KJV, NKJV, ESV, NIV, YLT) or use the verse toolbar on any translation.
                   </span>
-                  <span className="sm:hidden">Tap words (KJV) or use the verse toolbar.</span>
+                  <span className="sm:hidden">Tap words or use the verse toolbar.</span>
                 </p>
               </div>
               <div className="flex shrink-0 items-center justify-end gap-2 sm:justify-start">

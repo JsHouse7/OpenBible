@@ -1,6 +1,7 @@
-// Lexicon data service: loads Strong's-tagged KJV chapters and Strong's
+// Lexicon data service: loads Strong's-tagged chapters and Strong's
 // dictionary entries from the static JSON assets built by
-// scripts/build-lexicon-data.mjs (public/bible-tagged-kjv and public/lexicon).
+// scripts/build-lexicon-data.mjs and scripts/align-translation.mjs
+// (public/bible-tagged-{translation} and public/lexicon).
 
 import type {
   TaggedChapter,
@@ -8,6 +9,17 @@ import type {
   StrongsEntry,
   ConcordanceResponse,
 } from '@/types/lexicon'
+
+/**
+ * Translations with Strong's-tagged data in public/bible-tagged-{abbrev}.
+ * KJV is exact (source-tagged); the others are aligned offline against the
+ * tagged KJV by scripts/align-translation.mjs, so their tagging is partial.
+ */
+export const TAGGED_TRANSLATIONS = new Set(['KJV', 'NKJV', 'ESV', 'NIV', 'YLT'])
+
+export function isTaggedTranslation(abbreviation: string): boolean {
+  return TAGGED_TRANSLATIONS.has(abbreviation)
+}
 
 const taggedChapterCache = new Map<string, TaggedVerse[] | null>()
 const shardCache = new Map<string, Record<string, Omit<StrongsEntry, 'language'>> | null>()
@@ -23,20 +35,25 @@ export function strongsLanguage(id: string): 'hebrew' | 'greek' {
 }
 
 /**
- * Load the Strong's-tagged KJV verses for a chapter.
- * Returns null when no tagged data is available (missing file / fetch error).
+ * Load the Strong's-tagged verses for a chapter of a translation.
+ * Returns null when no tagged data is available (untagged translation,
+ * missing file, or fetch error).
  */
 export async function loadTaggedChapter(
   book: string,
-  chapter: number
+  chapter: number,
+  translation: string = 'KJV'
 ): Promise<TaggedVerse[] | null> {
-  const cacheKey = `${book}-${chapter}`
+  if (!isTaggedTranslation(translation)) return null
+
+  const dir = `bible-tagged-${translation.toLowerCase()}`
+  const cacheKey = `${translation}-${book}-${chapter}`
   if (taggedChapterCache.has(cacheKey)) {
     return taggedChapterCache.get(cacheKey)!
   }
 
   try {
-    const response = await fetch(`/bible-tagged-kjv/${encodeURIComponent(book)}/${chapter}.json`)
+    const response = await fetch(`/${dir}/${encodeURIComponent(book)}/${chapter}.json`)
     if (!response.ok) {
       taggedChapterCache.set(cacheKey, null)
       return null

@@ -293,3 +293,44 @@ select:focus-visible {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Safari and Chrome */
 }
+
+/* Ebook reader */
+.safe-area-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+.safe-area-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.reader-content p {
+  margin-bottom: 1em;
+  text-indent: 0;
+}
+
+.reader-content h1,
+.reader-content h2,
+.reader-content h3 {
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  font-weight: 600;
+}
+
+.reader-content blockquote {
+  margin: 1em 0;
+  padding-left: 1em;
+  border-left: 3px solid currentColor;
+  opacity: 0.85;
+}
+
+.reader-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 1em auto;
+  display: block;
+}
+
+.reader-content {
+  column-fill: auto;
+}
+

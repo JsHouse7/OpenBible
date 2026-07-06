@@ -18,7 +18,7 @@ import { loadChapterData, COMPLETE_BIBLE_BOOKS } from '@/data/completeBible'
 import { notesService, highlightsService, bookmarksService } from '@/lib/database'
 import { BibleAttribution } from '@/components/BibleAttribution'
 import { WordStudyPanel, type InterlinearVerse } from '@/components/WordStudyPanel'
-import { loadTaggedChapter } from '@/lib/lexiconService'
+import { loadTaggedChapter, isTaggedTranslation } from '@/lib/lexiconService'
 import type { BibleVerse } from '@/data/completeBible'
 import type { TaggedToken, WordSelection } from '@/types/lexicon'
 import {
@@ -27,9 +27,6 @@ import {
   sortVersesByNumber,
   updateVerseSelection,
 } from '@/lib/verseSelection'
-
-/** Translations whose displayed text matches the Strong's-tagged KJV data. */
-const TAGGED_TRANSLATIONS = new Set(['KJV'])
 
 interface Note {
   id: string
@@ -128,7 +125,7 @@ export function BibleReader({
   const lexiconInlineActive =
     readerPrefs.lexiconEnabled &&
     readerPrefs.lexiconInlineWords &&
-    TAGGED_TRANSLATIONS.has(selectedVersion.abbreviation)
+    isTaggedTranslation(selectedVersion.abbreviation)
 
   useEffect(() => {
     if (!lexiconInlineActive) {
@@ -136,7 +133,7 @@ export function BibleReader({
       return
     }
     let cancelled = false
-    loadTaggedChapter(book, chapter).then((tagged) => {
+    loadTaggedChapter(book, chapter, selectedVersion.abbreviation).then((tagged) => {
       if (cancelled) return
       if (!tagged) {
         setTaggedVerses(null)
@@ -147,7 +144,7 @@ export function BibleReader({
     return () => {
       cancelled = true
     }
-  }, [book, chapter, lexiconInlineActive])
+  }, [book, chapter, lexiconInlineActive, selectedVersion.abbreviation])
 
   // Close the word-study panel when navigating
   useEffect(() => {
@@ -157,21 +154,51 @@ export function BibleReader({
 
   const handleWordSelect = useCallback(
     (strongsIds: string[], surface: string, verse: BibleVerse) => {
-      setWordSelection({ strongsIds, surface, book, chapter, verse: verse.verse })
+      setWordSelection({
+        strongsIds,
+        surface,
+        book,
+        chapter,
+        verse: verse.verse,
+        translation: selectedVersion.abbreviation,
+      })
     },
-    [book, chapter]
+    [book, chapter, selectedVersion.abbreviation]
   )
 
-  // "Word Study" toolbar action: opens the tagged-KJV interlinear view for a
-  // verse, giving every translation access to original-language data.
+  // "Word Study" toolbar action: opens the tagged interlinear view for a
+  // verse. Prefers the current translation's tagged data; falls back to the
+  // Strong's-tagged KJV so every translation has original-language access.
   const handleVerseWordStudy = useCallback(
     async (verse: BibleVerse) => {
-      const tagged = await loadTaggedChapter(book, chapter)
-      const tokens = tagged?.find((v) => v.verse === verse.verse)?.tokens ?? null
+      const abbrev = selectedVersion.abbreviation
+      let translation = abbrev
+      let tokens: TaggedToken[] | null = null
+
+      if (isTaggedTranslation(abbrev)) {
+        const tagged = await loadTaggedChapter(book, chapter, abbrev)
+        tokens = tagged?.find((v) => v.verse === verse.verse)?.tokens ?? null
+      }
+      if (!tokens || tokens.length === 0 || !tokens.some((t) => t.s && t.s.length > 0)) {
+        const taggedKjv = await loadTaggedChapter(book, chapter, 'KJV')
+        const kjvTokens = taggedKjv?.find((v) => v.verse === verse.verse)?.tokens ?? null
+        if (kjvTokens && kjvTokens.length > 0) {
+          translation = 'KJV'
+          tokens = kjvTokens
+        }
+      }
+
       setWordSelection(null)
-      setInterlinearVerse({ book, chapter, verse: verse.verse, tokens })
+      setInterlinearVerse({
+        book,
+        chapter,
+        verse: verse.verse,
+        tokens,
+        translation,
+        isFallback: translation === 'KJV' && abbrev !== 'KJV',
+      })
     },
-    [book, chapter]
+    [book, chapter, selectedVersion.abbreviation]
   )
 
   const lexiconToolbarEnabled = readerPrefs.lexiconEnabled
@@ -712,6 +739,7 @@ export function BibleReader({
               book: interlinearVerse.book,
               chapter: interlinearVerse.chapter,
               verse: interlinearVerse.verse,
+              translation: interlinearVerse.translation,
             })
           }
         }}

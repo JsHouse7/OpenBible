@@ -65,4 +65,6 @@ export interface WordSelection {
   book: string
   chapter: number
   verse: number
+  /** Translation the surface word was tapped in (defaults to KJV). */
+  translation?: string
 }

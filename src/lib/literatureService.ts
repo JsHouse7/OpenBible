@@ -39,6 +39,8 @@ function normalizeLiteratureWorkSummary(raw: unknown): LiteratureWorkSummary {
     estimatedReadingTime: Number.isFinite(estimatedReadingTime) ? estimatedReadingTime : 0,
     filename: String(r.filename ?? `${r.id ?? 'work'}.json`),
     dateAdded: String(r.dateAdded ?? meta.dateAdded ?? new Date().toISOString()),
+    ownerUserId: r.ownerUserId != null ? String(r.ownerUserId) : null,
+    slug: r.slug != null ? String(r.slug) : undefined,
   }
 }
 
@@ -59,6 +61,8 @@ export interface LiteratureWorkSummary {
   estimatedReadingTime: number
   filename: string
   dateAdded: string
+  ownerUserId?: string | null
+  slug?: string
 }
 
 export class LiteratureService {

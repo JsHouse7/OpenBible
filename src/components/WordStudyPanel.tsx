@@ -17,12 +17,16 @@ import { cn } from "@/lib/utils"
 import { TaggedVerseText } from "@/components/TaggedVerseText"
 import type { StrongsEntry, ConcordanceResponse, WordSelection, TaggedToken } from "@/types/lexicon"
 
-/** Tagged KJV verse shown for word-by-word study (used for untagged translations). */
+/** Tagged verse shown for word-by-word study. */
 export interface InterlinearVerse {
   book: string
   chapter: number
   verse: number
   tokens: TaggedToken[] | null
+  /** Translation of the tagged text being shown (may be a KJV fallback). */
+  translation: string
+  /** True when the reader's translation has no tagged data and KJV is shown instead. */
+  isFallback?: boolean
 }
 
 interface WordStudyPanelProps {
@@ -129,7 +133,12 @@ export function WordStudyPanel({
             </SheetTitle>
             <SheetDescription>
               Tap a word to see its original Hebrew/Greek entry. Original-language data is shown
-              from the Strong&apos;s-tagged KJV text.
+              from the Strong&apos;s-tagged {interlinear!.translation} text.
+              {interlinear!.isFallback &&
+                " Your translation has no tagged data for this verse, so the KJV text is shown."}
+              {!interlinear!.isFallback &&
+                interlinear!.translation !== "KJV" &&
+                " Words without a confident original-language match are not tappable."}
             </SheetDescription>
           </SheetHeader>
 
@@ -189,7 +198,9 @@ export function WordStudyPanel({
             <Languages className="h-5 w-5 text-primary" aria-hidden />
             <span>&ldquo;{selection.surface}&rdquo;</span>
           </SheetTitle>
-          <SheetDescription>{verseRef} (KJV)</SheetDescription>
+          <SheetDescription>
+            {verseRef} ({selection.translation ?? interlinear?.translation ?? "KJV"})
+          </SheetDescription>
         </SheetHeader>
 
         {selection.strongsIds.length > 1 && (

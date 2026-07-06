@@ -121,3 +121,33 @@ Song of Solomon missing from `public/bible-json-kjv/` + `public/bible-json-web/`
   phrase "only begotten" → G3439; verse click still opens the study toolbar (now with Word Study);
   toolbar → interlinear view → word → entry → "Back to verse" all work; `/lexicon/G25` renders;
   `?strongs=XSS` → 400; zero console errors.
+
+---
+
+## 9. Multi-translation word study (added 2026-07-06)
+
+Word study now covers **KJV, NKJV, ESV, NIV, and YLT** (`TAGGED_TRANSLATIONS` in
+`src/lib/lexiconService.ts`). KJV remains exact (source-tagged); the other four are tagged by
+**offline auto-alignment** against the tagged KJV:
+
+| File | Purpose |
+|---|---|
+| `scripts/align-translation.mjs` (new) | Aligns each verse of `public/bible-json-{t}/` to the tagged KJV verse: (1) exact normalized surface match, (2) stem match (both order-preserving LCS), (3) lexicon-gloss match via `kjv_def`/`usage`. Only confident matches get tags; verses under 20% content-word coverage are emitted untagged. Run via `npm run build:lexicon:align` (after `build:lexicon`). |
+| `public/bible-tagged-{nkjv,esv,niv,ylt}/` (generated) | Same token model as the tagged KJV; token join reproduces the source verse text exactly (verified for all 123,909 verses). |
+
+Measured content-word coverage: NKJV 78.8%, YLT 75.8%, ESV 72.8%, NIV 60.8% (99%+ of verses have
+at least one tagged word). Unmatched words render as plain, non-clickable text.
+
+Runtime changes:
+- `loadTaggedChapter(book, chapter, translation)` — translation-aware fetch + cache.
+- Inline clickable words now activate on any tagged translation.
+- The toolbar "Word Study" view prefers the current translation's tagged verse and falls back to
+  the tagged KJV (panel notes the fallback via `InterlinearVerse.isFallback`), so untagged
+  translations (WEB, NASB, NLT, ASV) and KJV-only verses keep working as before.
+- `WordSelection.translation` records which translation a word was tapped in.
+
+No usable openly licensed Strong's-tagged YLT source was found in machine-readable form, so YLT
+uses the aligner path like NKJV/ESV/NIV (its literal wording aligns well). Note: NKJV/ESV/NIV/YLT
+source dirs lack Song of Solomon (pre-existing gap), so no tagged data is generated for it there.
+The concordance (`strongs_occurrences`) remains KJV-based by design — it is keyed on Strong's IDs
+and therefore translation-independent.

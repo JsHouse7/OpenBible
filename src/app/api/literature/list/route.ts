@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const withEmbed = await supabase
       .from('works')
       .select(
-        'id, title, slug, description, content, year_published, created_at, author_id, authors ( name )'
+        'id, title, slug, description, content, year_published, created_at, author_id, owner_user_id, authors ( name )'
       )
       .order('created_at', { ascending: false })
 
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       const plain = await supabase
         .from('works')
         .select(
-          'id, title, slug, description, content, year_published, created_at, author_id'
+          'id, title, slug, description, content, year_published, created_at, author_id, owner_user_id'
         )
         .order('created_at', { ascending: false })
       works = plain.data
@@ -112,6 +112,8 @@ export async function GET(request: NextRequest) {
         estimatedReadingTime,
         filename: `${w.slug || 'work'}.json`,
         dateAdded: parsed?.metadata?.parseDate ?? parsed?.metadata?.dateAdded ?? w.created_at,
+        ownerUserId: w.owner_user_id ?? null,
+        slug: w.slug,
       }
     })
 

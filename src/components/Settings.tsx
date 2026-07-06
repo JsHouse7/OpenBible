@@ -806,7 +806,7 @@ const Settings = () => {
                       <div className="space-y-0.5">
                         <Label className="text-sm">Clickable Words While Reading</Label>
                         <p className="text-xs text-muted-foreground">
-                          Tap any word in the KJV to open its original-language entry
+                          Tap words in the KJV, NKJV, ESV, NIV, or YLT to open their original-language entries
                         </p>
                       </div>
                       <Switch
