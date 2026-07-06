@@ -8,10 +8,18 @@ interface ReaderContentProps {
   html: string
   prefs: ReaderPreferences
   className?: string
+  /** When true, horizontal margins are omitted (paginated mode applies them on the wrapper). */
+  noHorizontalPadding?: boolean
   onTextSelect?: (selection: { text: string; start: number; end: number }) => void
 }
 
-export function ReaderContent({ html, prefs, className, onTextSelect }: ReaderContentProps) {
+export function ReaderContent({
+  html,
+  prefs,
+  className,
+  noHorizontalPadding = false,
+  onTextSelect,
+}: ReaderContentProps) {
   const theme = readerThemeStyles[prefs.theme]
   const fontClass =
     fontOptions.find((f) => f.value === prefs.fontFamily)?.className ?? 'font-crimson'
@@ -39,8 +47,8 @@ export function ReaderContent({ html, prefs, className, onTextSelect }: ReaderCo
         lineHeight: prefs.lineHeight,
         textAlign: prefs.textAlign,
         color: theme.text,
-        paddingLeft: `${prefs.margins}px`,
-        paddingRight: `${prefs.margins}px`,
+        paddingLeft: noHorizontalPadding ? 0 : `${prefs.margins}px`,
+        paddingRight: noHorizontalPadding ? 0 : `${prefs.margins}px`,
       }}
       dangerouslySetInnerHTML={{ __html: html }}
       onMouseUp={handleMouseUp}

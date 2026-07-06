@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ReaderContent } from './ReaderContent'
 import { ReaderPreferences } from '@/lib/readerPreferences'
 
@@ -21,46 +21,79 @@ export function PaginatedView({
   const contentRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(initialPage)
   const [totalPages, setTotalPages] = useState(1)
-  const [pageWidth, setPageWidth] = useState(0)
+  const [pageStride, setPageStride] = useState(0)
   const touchStartX = useRef(0)
+  const prevHtmlRef = useRef(html)
+  const pageRef = useRef(page)
+  const totalPagesRef = useRef(totalPages)
+
+  pageRef.current = page
+  totalPagesRef.current = totalPages
 
   const recalculate = useCallback(() => {
     const container = containerRef.current
     const content = contentRef.current
     if (!container || !content) return
 
-    const width = container.clientWidth
+    const margins = prefs.margins
     const height = container.clientHeight
-    setPageWidth(width)
+    const outerWidth = container.clientWidth
+    const contentWidth = Math.max(1, outerWidth - margins * 2)
+    const columnGap = margins * 2
+    const stride = contentWidth + columnGap
+
+    setPageStride(stride)
 
     const inner = content.querySelector('.reader-content') as HTMLElement
     if (!inner) return
 
-    inner.style.columnWidth = `${width}px`
-    inner.style.columnGap = '0px'
+    inner.style.columnWidth = `${contentWidth}px`
+    inner.style.columnGap = `${columnGap}px`
     inner.style.columnFill = 'auto'
     inner.style.height = `${height}px`
-    inner.style.width = 'auto'
+    inner.style.width = `${contentWidth}px`
+    inner.style.boxSizing = 'border-box'
 
     const scrollW = inner.scrollWidth
-    const pages = Math.max(1, Math.ceil(scrollW / width))
+    const pages = Math.max(1, Math.round((scrollW + columnGap) / stride))
+
+    const isChapterChange = prevHtmlRef.current !== html
+    if (isChapterChange) {
+      prevHtmlRef.current = html
+      setPage(initialPage)
+      pageRef.current = initialPage
+    } else if (totalPagesRef.current > 0) {
+      const fraction = pageRef.current / totalPagesRef.current
+      const restored = Math.min(pages - 1, Math.max(0, Math.round(fraction * pages)))
+      setPage(restored)
+      pageRef.current = restored
+    } else {
+      setPage((p) => Math.min(p, pages - 1))
+    }
+
     setTotalPages(pages)
-    setPage((p) => Math.min(p, pages - 1))
-  }, [])
+    totalPagesRef.current = pages
+  }, [html, prefs.margins, prefs.fontSize, prefs.lineHeight, prefs.fontFamily, prefs.textAlign, initialPage])
+
+  useLayoutEffect(() => {
+    recalculate()
+  }, [recalculate])
 
   useEffect(() => {
-    recalculate()
-    const ro = new ResizeObserver(recalculate)
+    const ro = new ResizeObserver(() => recalculate())
     if (containerRef.current) ro.observe(containerRef.current)
     return () => ro.disconnect()
-  }, [html, prefs, recalculate])
+  }, [recalculate])
 
   useEffect(() => {
-    onPageChange?.(page, totalPages, page * pageWidth)
-  }, [page, totalPages, pageWidth, onPageChange])
+    onPageChange?.(page, totalPages, page * pageStride)
+  }, [page, totalPages, pageStride, onPageChange])
 
-  const goNext = () => setPage((p) => Math.min(p + 1, totalPages - 1))
-  const goPrev = () => setPage((p) => Math.max(p - 1, 0))
+  const goNext = useCallback(
+    () => setPage((p) => Math.min(p + 1, totalPagesRef.current - 1)),
+    []
+  )
+  const goPrev = useCallback(() => setPage((p) => Math.max(p - 1, 0)), [])
 
   const handleClick = (e: React.MouseEvent) => {
     const rect = containerRef.current?.getBoundingClientRect()
@@ -88,12 +121,17 @@ export function PaginatedView({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [totalPages])
+  }, [goNext, goPrev])
 
   return (
     <div
       ref={containerRef}
       className="relative h-full w-full overflow-hidden select-none"
+      style={{
+        paddingLeft: prefs.margins,
+        paddingRight: prefs.margins,
+        boxSizing: 'border-box',
+      }}
       onClick={handleClick}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -101,9 +139,9 @@ export function PaginatedView({
       <div
         ref={contentRef}
         className="h-full transition-transform duration-300 ease-out"
-        style={{ transform: `translateX(-${page * pageWidth}px)` }}
+        style={{ transform: `translateX(-${page * pageStride}px)` }}
       >
-        <ReaderContent html={html} prefs={prefs} />
+        <ReaderContent html={html} prefs={prefs} noHorizontalPadding />
       </div>
       <div className="absolute bottom-4 left-0 right-0 text-center text-xs opacity-60 pointer-events-none">
         {page + 1} / {totalPages}
