@@ -22,11 +22,27 @@ export function formatVerseRangeLabel(verses: BibleVerse[]): string {
   const sorted = sortVersesByNumber(verses)
   if (sorted.length === 0) return ''
   const first = sorted[0]
-  const last = sorted[sorted.length - 1]
-  if (sorted.length === 1 || first.verse === last.verse) {
+
+  if (sorted.length === 1) {
     return `${first.book} ${first.chapter}:${first.verse}`
   }
-  return `${first.book} ${first.chapter}:${first.verse}-${last.verse}`
+
+  const ranges: string[] = []
+  let rangeStart = sorted[0].verse
+  let rangeEnd = sorted[0].verse
+
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].verse === rangeEnd + 1) {
+      rangeEnd = sorted[i].verse
+    } else {
+      ranges.push(rangeStart === rangeEnd ? `${rangeStart}` : `${rangeStart}-${rangeEnd}`)
+      rangeStart = sorted[i].verse
+      rangeEnd = sorted[i].verse
+    }
+  }
+
+  ranges.push(rangeStart === rangeEnd ? `${rangeStart}` : `${rangeStart}-${rangeEnd}`)
+  return `${first.book} ${first.chapter}:${ranges.join(', ')}`
 }
 
 export function formatVersesForCopy(verses: BibleVerse[], version?: string): string {
@@ -67,7 +83,7 @@ export function updateVerseSelection({
     }
   }
 
-  if (multiSelectKey) {
+  if (multiSelectKey || currentSelection.length > 0) {
     const isSelected = isVerseInSelection(verse, currentSelection)
     const nextSelection = isSelected
       ? currentSelection.filter((v) => v.id !== verse.id)

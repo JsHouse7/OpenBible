@@ -312,15 +312,6 @@ export function BibleReader({
     const shiftKey = event.shiftKey
     const multiSelectKey = event.metaKey || event.ctrlKey
 
-    if (!shiftKey && !multiSelectKey) {
-      const isOnlySelected =
-        selectedVerses.length === 1 && selectedVerses[0].id === verse.id
-      if (isOnlySelected) {
-        setStudyToolbarOpen((open) => !open)
-        return
-      }
-    }
-
     const { selection, anchor } = updateVerseSelection({
       verse,
       chapterVerses: verses,
@@ -511,12 +502,13 @@ export function BibleReader({
       ? notes.find((note) => note.verseId === noteVerses[0].id)
       : undefined
 
-  const renderStudyToolbar = (variant: 'default' | 'chapter') => {
-    if (selectedVerses.length === 0 || !studyToolbarOpen) return null
+  const studyToolbarVisible = selectedVerses.length > 0 && studyToolbarOpen
+
+  const renderStudyToolbar = () => {
+    if (!studyToolbarVisible) return null
 
     return (
       <VerseStudyToolbar
-        variant={variant}
         verses={sortVersesByNumber(selectedVerses)}
         hasNote={selectedHasNote}
         isHighlighted={selectedAllHighlighted}
@@ -531,7 +523,7 @@ export function BibleReader({
             ? () => void handleVerseWordStudy(selectedVerses[0])
             : undefined
         }
-        onDismiss={variant === 'chapter' ? dismissStudyToolbar : undefined}
+        onDismiss={dismissStudyToolbar}
       />
     )
   }
@@ -653,7 +645,13 @@ export function BibleReader({
         canGoNext={canGoNext}
       />
       
-      <div className={cn(readingModeClass, 'max-md:pb-32 md:pb-6')}>
+      <div
+        className={cn(
+          readingModeClass,
+          'max-md:pb-32 md:pb-6',
+          studyToolbarVisible && 'max-md:pb-56 md:pb-44'
+        )}
+      >
         {continuousReading ? (
           <>
             <p
@@ -681,7 +679,6 @@ export function BibleReader({
                 />
               ))}
             </p>
-            {renderStudyToolbar('chapter')}
           </>
         ) : (
           <div
@@ -713,7 +710,6 @@ export function BibleReader({
                 />
               </div>
             ))}
-            {renderStudyToolbar('default')}
           </div>
         )}
 
@@ -726,6 +722,8 @@ export function BibleReader({
         {/* Attribution */}
         <BibleAttribution variant="footer" className="mt-8" />
       </div>
+
+      {renderStudyToolbar()}
 
       {/* Word study panel (lexicon) */}
       <WordStudyPanel
