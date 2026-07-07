@@ -781,9 +781,26 @@ export function BibleReader({
           >
             <ChevronLeft className="h-6 w-6" />
           </Button>
-          <span className="truncate text-center text-sm font-medium text-muted-foreground">
-            {book} {chapter}
-          </span>
+          <div className="flex min-w-0 items-center justify-center gap-1">
+            <button
+              type="button"
+              onClick={onBookClick}
+              className="truncate text-sm font-medium text-muted-foreground hover:text-blue-600"
+              data-testid="bible-reference-book-mobile"
+              aria-label={`Select book, currently ${book}`}
+            >
+              {book}
+            </button>
+            <button
+              type="button"
+              onClick={onChapterClick}
+              className="shrink-0 text-sm font-medium text-muted-foreground hover:text-blue-600"
+              data-testid="bible-reference-chapter-mobile"
+              aria-label={`Select chapter, currently ${chapter}`}
+            >
+              {chapter}
+            </button>
+          </div>
           <Button
             variant="outline"
             size="lg"
