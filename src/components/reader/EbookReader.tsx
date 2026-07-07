@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   ArrowLeft,
   BookMarked,
@@ -12,27 +12,39 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Slider } from '@/components/ui/slider'
-import { LiteratureWork } from '@/lib/literatureParser'
 import { readerThemeStyles } from '@/lib/readerPreferences'
 import { useReaderPreferences } from '@/hooks/useReaderPreferences'
-import {
-  literatureProgressService,
-  LiteratureBookmark,
-} from '@/lib/literatureProgressService'
 import { PaginatedView } from './PaginatedView'
 import { ScrollView } from './ScrollView'
 import { ReaderSettingsSheet } from './ReaderSettingsSheet'
 import { TocDrawer } from './TocDrawer'
 import { cn } from '@/lib/utils'
+import type {
+  EbookReaderProps,
+  ReaderBookmark,
+  ReaderChapter,
+} from './readerTypes'
 
-interface EbookReaderProps {
-  work: LiteratureWork
-  onClose: () => void
-}
-
-export function EbookReader({ work, onClose }: EbookReaderProps) {
+export function EbookReader({
+  book,
+  persistence,
+  onClose,
+  extraSettings,
+  chapterLabel,
+  onChapterChange,
+  onProgressUpdate,
+  onReachBookEnd,
+  onReachBookStart,
+  enableBookmarks = Boolean(persistence.addBookmark),
+  enableHighlights = Boolean(persistence.addHighlight),
+  initialChapterIndex = 0,
+  nextChapterLabel = 'Next chapter',
+  prevChapterLabel = 'Previous',
+  disableNextChapter = false,
+  disablePrevChapter = false,
+}: EbookReaderProps) {
   const { prefs, updatePrefs, resetPrefs, loaded } = useReaderPreferences()
-  const [currentChapter, setCurrentChapter] = useState(0)
+  const [currentChapter, setCurrentChapter] = useState(initialChapterIndex)
   const [chapterPage, setChapterPage] = useState(0)
   const [chapterTotalPages, setChapterTotalPages] = useState(1)
   const [chapterStartPage, setChapterStartPage] = useState(0)
@@ -40,22 +52,34 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
   const [showChrome, setShowChrome] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
-  const [bookmarks, setBookmarks] = useState<LiteratureBookmark[]>([])
+  const [bookmarks, setBookmarks] = useState<ReaderBookmark[]>([])
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [restored, setRestored] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
   const theme = readerThemeStyles[prefs.theme]
-  const chapter = work.chapters[currentChapter]
-  const chapterHtml = chapter?.content ?? ''
+  const chapter = book.chapters[currentChapter]
+  const chapterHtml = chapter?.html ?? ''
+
+  const tocChapters: ReaderChapter[] = useMemo(() => {
+    if (book.tocChapters?.length) {
+      return book.tocChapters.map((t, i) => ({
+        id: `toc-${i}`,
+        title: t.title,
+        html: '',
+        wordCount: 0,
+      }))
+    }
+    return book.chapters
+  }, [book])
 
   const bookPercent = useMemo(() => {
-    const totalWords = work.chapters.reduce((s, c) => s + c.wordCount, 0)
+    const totalWords = book.chapters.reduce((s, c) => s + c.wordCount, 0)
     if (totalWords === 0) return 0
     let wordsBefore = 0
     for (let i = 0; i < currentChapter; i++) {
-      wordsBefore += work.chapters[i].wordCount
+      wordsBefore += book.chapters[i].wordCount
     }
     const chWords = chapter?.wordCount ?? 0
     const chapterProgress =
@@ -64,13 +88,13 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
       100,
       ((wordsBefore + chapterProgress * chWords) / totalWords) * 100
     )
-  }, [work, currentChapter, chapter, chapterPage, chapterTotalPages])
+  }, [book, currentChapter, chapter, chapterPage, chapterTotalPages])
 
   useEffect(() => {
     if (!loaded || restored) return
-    literatureProgressService.getProgress(work.id).then((p) => {
+    persistence.getProgress(book.id).then((p) => {
       if (p) {
-        setCurrentChapter(Math.min(p.chapterIndex, work.chapters.length - 1))
+        setCurrentChapter(Math.min(p.chapterIndex, book.chapters.length - 1))
         if (prefs.readingMode === 'paginated') {
           setChapterStartPage(p.positionAnchor)
         } else {
@@ -79,22 +103,21 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
       }
       setRestored(true)
     })
-    literatureProgressService.getBookmarks(work.id).then(setBookmarks)
-  }, [work.id, work.chapters.length, loaded, restored, prefs.readingMode])
+    persistence.getBookmarks?.(book.id).then((b) => setBookmarks(b ?? []))
+  }, [book.id, book.chapters.length, loaded, restored, prefs.readingMode, persistence])
 
   const saveProgress = useCallback(
     (chapterIdx: number, pageOrAnchor: number, percent: number) => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(() => {
-        literatureProgressService.saveProgress({
-          workId: work.id,
+        persistence.saveProgress(book.id, {
           chapterIndex: chapterIdx,
           positionAnchor: pageOrAnchor,
           percent,
         })
       }, 800)
     },
-    [work.id]
+    [book.id, persistence]
   )
 
   const progressAnchor =
@@ -103,28 +126,55 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
   useEffect(() => {
     if (!restored) return
     saveProgress(currentChapter, progressAnchor, bookPercent)
-  }, [currentChapter, progressAnchor, bookPercent, saveProgress, restored])
+    const bibleCh = chapter?.bibleChapter
+    onChapterChange?.(currentChapter, bibleCh)
+    onProgressUpdate?.({ bookPercent, chapterIndex: currentChapter })
+  }, [
+    currentChapter,
+    progressAnchor,
+    bookPercent,
+    saveProgress,
+    restored,
+    onChapterChange,
+    onProgressUpdate,
+    chapter?.bibleChapter,
+  ])
 
   const goToNextChapter = useCallback(() => {
-    if (currentChapter >= work.chapters.length - 1) return
+    if (currentChapter >= book.chapters.length - 1) {
+      onReachBookEnd?.()
+      return
+    }
     setChapterStartPage(0)
     setCurrentChapter((c) => c + 1)
-  }, [currentChapter, work.chapters.length])
+  }, [currentChapter, book.chapters.length, onReachBookEnd])
 
   const goToPrevChapter = useCallback(() => {
-    if (currentChapter <= 0) return
+    if (currentChapter <= 0) {
+      onReachBookStart?.()
+      return
+    }
     setChapterStartPage(-1)
     setCurrentChapter((c) => c - 1)
-  }, [currentChapter])
+  }, [currentChapter, onReachBookStart])
 
   const handleBookSlider = (values: number[]) => {
     const target = values[0]
-    const totalWords = work.chapters.reduce((s, c) => s + c.wordCount, 0)
+    const totalWords = book.chapters.reduce((s, c) => s + c.wordCount, 0)
+
+    if (book.chapters.length === 1 && totalWords > 0) {
+      const fraction = target / 100
+      const page = Math.round(fraction * Math.max(0, chapterTotalPages - 1))
+      setChapterStartPage(page)
+      setChapterPage(page)
+      return
+    }
+
     let acc = 0
-    for (let i = 0; i < work.chapters.length; i++) {
-      const chWords = work.chapters[i].wordCount
+    for (let i = 0; i < book.chapters.length; i++) {
+      const chWords = book.chapters[i].wordCount
       const chEnd = ((acc + chWords) / totalWords) * 100
-      if (target <= chEnd || i === work.chapters.length - 1) {
+      if (target <= chEnd || i === book.chapters.length - 1) {
         setCurrentChapter(i)
         setChapterStartPage(0)
         setScrollAnchor(0)
@@ -132,6 +182,21 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
       }
       acc += chWords
     }
+  }
+
+  const handleTocSelect = (index: number) => {
+    if (book.tocChapters?.length) {
+      const entry = book.tocChapters[index]
+      if (!entry) return
+      const totalWords = book.chapters.reduce((s, c) => s + c.wordCount, 0)
+      const percent =
+        totalWords > 0 ? ((entry.wordOffset ?? 0) / totalWords) * 100 : 0
+      handleBookSlider([percent])
+      return
+    }
+    setCurrentChapter(index)
+    setChapterStartPage(0)
+    setScrollAnchor(0)
   }
 
   const toggleFullscreen = async () => {
@@ -145,9 +210,9 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
   }
 
   const addBookmark = async () => {
+    if (!persistence.addBookmark) return
     const excerpt = chapter?.plainText?.slice(0, 120) ?? ''
-    const bm = await literatureProgressService.addBookmark({
-      workId: work.id,
+    const bm = await persistence.addBookmark(book.id, {
       chapterIndex: currentChapter,
       positionAnchor: progressAnchor,
       label: chapter?.title,
@@ -157,12 +222,12 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
   }
 
   const handleHighlight = async () => {
+    if (!persistence.addHighlight) return
     const sel = window.getSelection()
     if (!sel || sel.isCollapsed) return
     const text = sel.toString().trim()
     if (!text) return
-    await literatureProgressService.addHighlight({
-      workId: work.id,
+    await persistence.addHighlight(book.id, {
       chapterIndex: currentChapter,
       startAnchor: progressAnchor,
       endAnchor: progressAnchor + text.length,
@@ -171,6 +236,10 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
     })
     sel.removeAllRanges()
   }
+
+  const footerChapterText =
+    chapterLabel?.(currentChapter, book.chapters.length) ??
+    `Ch. ${currentChapter + 1} / ${book.chapters.length}`
 
   if (!chapter) {
     return (
@@ -189,7 +258,9 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
       <header
         className={cn(
           'flex items-center gap-2 px-3 py-2 border-b transition-all duration-300 safe-area-top',
-          showChrome ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none absolute'
+          showChrome
+            ? 'translate-y-0 opacity-100'
+            : '-translate-y-full opacity-0 pointer-events-none absolute'
         )}
         style={{ backgroundColor: theme.chrome, borderColor: 'transparent' }}
       >
@@ -197,18 +268,34 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{work.title}</p>
-          <p className="text-xs opacity-70 truncate">{chapter.title}</p>
+          <p className="text-sm font-medium truncate">{book.title}</p>
+          <p className="text-xs opacity-70 truncate">
+            {book.subtitle ?? chapter.title}
+          </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setTocOpen(true)} aria-label="Table of contents">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setTocOpen(true)}
+          aria-label="Table of contents"
+        >
           <List className="h-5 w-5" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={addBookmark} aria-label="Bookmark">
-          <BookMarked className="h-5 w-5" />
-        </Button>
-        <Button variant="ghost" size="icon" onClick={handleHighlight} aria-label="Highlight selection">
-          <Highlighter className="h-5 w-5" />
-        </Button>
+        {enableBookmarks && (
+          <Button variant="ghost" size="icon" onClick={addBookmark} aria-label="Bookmark">
+            <BookMarked className="h-5 w-5" />
+          </Button>
+        )}
+        {enableHighlights && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleHighlight}
+            aria-label="Highlight selection"
+          >
+            <Highlighter className="h-5 w-5" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" onClick={toggleFullscreen} aria-label="Fullscreen">
           {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
         </Button>
@@ -227,7 +314,7 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
           </div>
         ) : prefs.readingMode === 'paginated' ? (
           <PaginatedView
-            key={currentChapter}
+            key={`${currentChapter}-${chapterStartPage}`}
             html={chapterHtml}
             prefs={prefs}
             initialPage={chapterStartPage}
@@ -251,15 +338,15 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
       <footer
         className={cn(
           'px-4 py-3 border-t transition-all duration-300 safe-area-bottom',
-          showChrome ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none absolute bottom-0 left-0 right-0'
+          showChrome
+            ? 'translate-y-0 opacity-100'
+            : 'translate-y-full opacity-0 pointer-events-none absolute bottom-0 left-0 right-0'
         )}
         style={{ backgroundColor: theme.chrome }}
       >
         <div className="flex items-center gap-3 mb-2 text-xs opacity-70">
           <span>{Math.round(bookPercent)}%</span>
-          <span className="flex-1 text-center">
-            Ch. {currentChapter + 1} / {work.chapters.length}
-          </span>
+          <span className="flex-1 text-center">{footerChapterText}</span>
         </div>
         <Slider
           value={[bookPercent]}
@@ -272,24 +359,26 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
           <Button
             variant="ghost"
             size="sm"
-            disabled={currentChapter === 0}
+            disabled={disablePrevChapter && currentChapter === 0}
             onClick={(e) => {
               e.stopPropagation()
               goToPrevChapter()
             }}
           >
-            Previous
+            {prevChapterLabel}
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            disabled={currentChapter >= work.chapters.length - 1}
+            disabled={
+              disableNextChapter && currentChapter >= book.chapters.length - 1
+            }
             onClick={(e) => {
               e.stopPropagation()
               goToNextChapter()
             }}
           >
-            Next chapter
+            {nextChapterLabel}
           </Button>
         </div>
       </footer>
@@ -300,19 +389,27 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
         prefs={prefs}
         onUpdate={updatePrefs}
         onReset={resetPrefs}
+        extraSettings={extraSettings}
       />
 
       <TocDrawer
         open={tocOpen}
         onOpenChange={setTocOpen}
-        chapters={work.chapters}
-        currentChapter={currentChapter}
+        chapters={tocChapters}
+        currentChapter={
+          book.tocChapters?.length
+            ? tocChapters.findIndex((_, i) => {
+                const entry = book.tocChapters![i]
+                const totalWords = book.chapters.reduce((s, c) => s + c.wordCount, 0)
+                const wordsRead = (bookPercent / 100) * totalWords
+                const next = book.tocChapters![i + 1]?.wordOffset ?? Infinity
+                return wordsRead >= (entry.wordOffset ?? 0) && wordsRead < next
+              })
+            : currentChapter
+        }
         bookmarks={bookmarks}
-        onSelectChapter={(i) => {
-          setCurrentChapter(i)
-          setChapterStartPage(0)
-          setScrollAnchor(0)
-        }}
+        showBookmarks={enableBookmarks}
+        onSelectChapter={handleTocSelect}
         onSelectBookmark={(bm) => {
           setCurrentChapter(bm.chapterIndex)
           if (prefs.readingMode === 'paginated') {

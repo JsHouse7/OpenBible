@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
 import { LiteratureService, LiteratureWork } from '@/lib/literatureService'
-import { EbookReader } from '@/components/reader/EbookReader'
+import { LiteratureEbookReader } from '@/components/reader/LiteratureEbookReader'
 
 interface LiteratureReaderProps {
   workId: string
@@ -42,5 +42,5 @@ export function LiteratureReader({ workId, onClose }: LiteratureReaderProps) {
     )
   }
 
-  return <EbookReader work={work} onClose={onClose} />
+  return <LiteratureEbookReader work={work} onClose={onClose} />
 }

@@ -635,7 +635,8 @@ export function BibleReader({
     <>
       <ScriptureHeader 
         book={book} 
-        chapter={chapter} 
+        chapter={chapter}
+        translation={selectedVersion.abbreviation}
         verseRange={getVerseRange(verses)}
         onBookClick={onBookClick || (() => {})}
         onChapterClick={onChapterClick || (() => {})}

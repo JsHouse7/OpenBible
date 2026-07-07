@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react"
+import Link from "next/link"
+import { ChevronLeft, ChevronRight, SlidersHorizontal, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { BibleVersionSelector } from "./BibleVersionSelector"
 import { Switch } from "@/components/ui/switch"
@@ -13,6 +14,7 @@ import { cn } from "@/lib/utils"
 interface ScriptureHeaderProps {
   book: string
   chapter: number
+  translation?: string
   verseRange?: string
   onBookClick: () => void
   onChapterClick: () => void
@@ -25,6 +27,7 @@ interface ScriptureHeaderProps {
 export function ScriptureHeader({
   book,
   chapter,
+  translation = "KJV",
   verseRange,
   onBookClick,
   onChapterClick,
@@ -140,6 +143,15 @@ export function ScriptureHeader({
             </div>
 
             <div className="flex shrink-0 items-center gap-0.5">
+              <Link
+                href={`/bible/book?book=${encodeURIComponent(book)}&translation=${encodeURIComponent(translation)}&chapter=${chapter}`}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                title="Book view (ReadEra-style)"
+                aria-label="Open book view"
+                data-testid="bible-book-view"
+              >
+                <BookOpen className="h-5 w-5" />
+              </Link>
               <BibleVersionSelector />
               <Button
                 type="button"

@@ -14,6 +14,7 @@ interface ReaderSettingsSheetProps {
   prefs: ReaderPreferences
   onUpdate: (partial: Partial<ReaderPreferences>) => void
   onReset: () => void
+  extraSettings?: React.ReactNode
 }
 
 const themes: { value: ReaderTheme; label: string; swatch: string }[] = [
@@ -29,6 +30,7 @@ export function ReaderSettingsSheet({
   prefs,
   onUpdate,
   onReset,
+  extraSettings,
 }: ReaderSettingsSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -147,6 +149,8 @@ export function ReaderSettingsSheet({
           <Button variant="outline" className="w-full" onClick={onReset}>
             Reset to defaults
           </Button>
+
+          {extraSettings}
         </div>
       </SheetContent>
     </Sheet>
