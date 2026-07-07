@@ -33,7 +33,10 @@ interface EbookReaderProps {
 export function EbookReader({ work, onClose }: EbookReaderProps) {
   const { prefs, updatePrefs, resetPrefs, loaded } = useReaderPreferences()
   const [currentChapter, setCurrentChapter] = useState(0)
-  const [positionAnchor, setPositionAnchor] = useState(0)
+  const [chapterPage, setChapterPage] = useState(0)
+  const [chapterTotalPages, setChapterTotalPages] = useState(1)
+  const [chapterStartPage, setChapterStartPage] = useState(0)
+  const [scrollAnchor, setScrollAnchor] = useState(0)
   const [showChrome, setShowChrome] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tocOpen, setTocOpen] = useState(false)
@@ -54,31 +57,39 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
     for (let i = 0; i < currentChapter; i++) {
       wordsBefore += work.chapters[i].wordCount
     }
-    const chapterFrac =
-      chapter?.wordCount ? positionAnchor / Math.max(chapter.wordCount, 1) : 0
-    return Math.min(100, ((wordsBefore + chapterFrac * (chapter?.wordCount ?? 0)) / totalWords) * 100)
-  }, [work, currentChapter, positionAnchor, chapter])
+    const chWords = chapter?.wordCount ?? 0
+    const chapterProgress =
+      chapterTotalPages > 0 ? (chapterPage + 1) / chapterTotalPages : 0
+    return Math.min(
+      100,
+      ((wordsBefore + chapterProgress * chWords) / totalWords) * 100
+    )
+  }, [work, currentChapter, chapter, chapterPage, chapterTotalPages])
 
   useEffect(() => {
     if (!loaded || restored) return
     literatureProgressService.getProgress(work.id).then((p) => {
       if (p) {
         setCurrentChapter(Math.min(p.chapterIndex, work.chapters.length - 1))
-        setPositionAnchor(p.positionAnchor)
+        if (prefs.readingMode === 'paginated') {
+          setChapterStartPage(p.positionAnchor)
+        } else {
+          setScrollAnchor(p.positionAnchor)
+        }
       }
       setRestored(true)
     })
     literatureProgressService.getBookmarks(work.id).then(setBookmarks)
-  }, [work.id, work.chapters.length, loaded, restored])
+  }, [work.id, work.chapters.length, loaded, restored, prefs.readingMode])
 
   const saveProgress = useCallback(
-    (chapterIdx: number, anchor: number, percent: number) => {
+    (chapterIdx: number, pageOrAnchor: number, percent: number) => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(() => {
         literatureProgressService.saveProgress({
           workId: work.id,
           chapterIndex: chapterIdx,
-          positionAnchor: anchor,
+          positionAnchor: pageOrAnchor,
           percent,
         })
       }, 800)
@@ -86,10 +97,25 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
     [work.id]
   )
 
+  const progressAnchor =
+    prefs.readingMode === 'paginated' ? chapterPage : scrollAnchor
+
   useEffect(() => {
     if (!restored) return
-    saveProgress(currentChapter, positionAnchor, bookPercent)
-  }, [currentChapter, positionAnchor, bookPercent, saveProgress, restored])
+    saveProgress(currentChapter, progressAnchor, bookPercent)
+  }, [currentChapter, progressAnchor, bookPercent, saveProgress, restored])
+
+  const goToNextChapter = useCallback(() => {
+    if (currentChapter >= work.chapters.length - 1) return
+    setChapterStartPage(0)
+    setCurrentChapter((c) => c + 1)
+  }, [currentChapter, work.chapters.length])
+
+  const goToPrevChapter = useCallback(() => {
+    if (currentChapter <= 0) return
+    setChapterStartPage(-1)
+    setCurrentChapter((c) => c - 1)
+  }, [currentChapter])
 
   const handleBookSlider = (values: number[]) => {
     const target = values[0]
@@ -100,7 +126,8 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
       const chEnd = ((acc + chWords) / totalWords) * 100
       if (target <= chEnd || i === work.chapters.length - 1) {
         setCurrentChapter(i)
-        setPositionAnchor(0)
+        setChapterStartPage(0)
+        setScrollAnchor(0)
         break
       }
       acc += chWords
@@ -118,11 +145,11 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
   }
 
   const addBookmark = async () => {
-    const excerpt = chapter?.plainText?.slice(positionAnchor, positionAnchor + 120) ?? ''
+    const excerpt = chapter?.plainText?.slice(0, 120) ?? ''
     const bm = await literatureProgressService.addBookmark({
       workId: work.id,
       chapterIndex: currentChapter,
-      positionAnchor,
+      positionAnchor: progressAnchor,
       label: chapter?.title,
       excerpt,
     })
@@ -137,8 +164,8 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
     await literatureProgressService.addHighlight({
       workId: work.id,
       chapterIndex: currentChapter,
-      startAnchor: positionAnchor,
-      endAnchor: positionAnchor + text.length,
+      startAnchor: progressAnchor,
+      endAnchor: progressAnchor + text.length,
       color: 'yellow',
       excerpt: text.slice(0, 200),
     })
@@ -194,18 +221,29 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
         className="flex-1 relative overflow-hidden"
         onClick={() => setShowChrome((s) => !s)}
       >
-        {prefs.readingMode === 'paginated' ? (
+        {!restored ? (
+          <div className="flex h-full items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-current opacity-50" />
+          </div>
+        ) : prefs.readingMode === 'paginated' ? (
           <PaginatedView
+            key={currentChapter}
             html={chapterHtml}
             prefs={prefs}
-            onPageChange={(page, _total, anchor) => setPositionAnchor(anchor)}
+            initialPage={chapterStartPage}
+            onPageChange={(page, total) => {
+              setChapterPage(page)
+              setChapterTotalPages(total)
+            }}
+            onReachChapterEnd={goToNextChapter}
+            onReachChapterStart={goToPrevChapter}
           />
         ) : (
           <ScrollView
             html={chapterHtml}
             prefs={prefs}
-            initialAnchor={positionAnchor}
-            onScrollProgress={(anchor) => setPositionAnchor(anchor)}
+            initialAnchor={scrollAnchor}
+            onScrollProgress={(anchor) => setScrollAnchor(anchor)}
           />
         )}
       </main>
@@ -237,8 +275,7 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
             disabled={currentChapter === 0}
             onClick={(e) => {
               e.stopPropagation()
-              setCurrentChapter((c) => Math.max(0, c - 1))
-              setPositionAnchor(0)
+              goToPrevChapter()
             }}
           >
             Previous
@@ -249,8 +286,7 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
             disabled={currentChapter >= work.chapters.length - 1}
             onClick={(e) => {
               e.stopPropagation()
-              setCurrentChapter((c) => Math.min(work.chapters.length - 1, c + 1))
-              setPositionAnchor(0)
+              goToNextChapter()
             }}
           >
             Next chapter
@@ -274,11 +310,16 @@ export function EbookReader({ work, onClose }: EbookReaderProps) {
         bookmarks={bookmarks}
         onSelectChapter={(i) => {
           setCurrentChapter(i)
-          setPositionAnchor(0)
+          setChapterStartPage(0)
+          setScrollAnchor(0)
         }}
         onSelectBookmark={(bm) => {
           setCurrentChapter(bm.chapterIndex)
-          setPositionAnchor(bm.positionAnchor)
+          if (prefs.readingMode === 'paginated') {
+            setChapterStartPage(bm.positionAnchor)
+          } else {
+            setScrollAnchor(bm.positionAnchor)
+          }
         }}
       />
     </div>

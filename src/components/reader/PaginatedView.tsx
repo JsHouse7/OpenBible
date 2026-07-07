@@ -4,11 +4,16 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { ReaderContent } from './ReaderContent'
 import { ReaderPreferences } from '@/lib/readerPreferences'
 
+const PAGE_COUNTER_RESERVE = 36
+
 interface PaginatedViewProps {
   html: string
   prefs: ReaderPreferences
+  /** Page index to open on chapter load. Use -1 for the last page. */
   initialPage?: number
-  onPageChange?: (page: number, totalPages: number, anchor: number) => void
+  onPageChange?: (page: number, totalPages: number) => void
+  onReachChapterEnd?: () => void
+  onReachChapterStart?: () => void
 }
 
 export function PaginatedView({
@@ -16,6 +21,8 @@ export function PaginatedView({
   prefs,
   initialPage = 0,
   onPageChange,
+  onReachChapterEnd,
+  onReachChapterStart,
 }: PaginatedViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -36,7 +43,7 @@ export function PaginatedView({
     if (!container || !content) return
 
     const margins = prefs.margins
-    const height = container.clientHeight
+    const height = Math.max(1, container.clientHeight - PAGE_COUNTER_RESERVE)
     const outerWidth = container.clientWidth
     const contentWidth = Math.max(1, outerWidth - margins * 2)
     const columnGap = margins * 2
@@ -60,8 +67,10 @@ export function PaginatedView({
     const isChapterChange = prevHtmlRef.current !== html
     if (isChapterChange) {
       prevHtmlRef.current = html
-      setPage(initialPage)
-      pageRef.current = initialPage
+      const targetPage =
+        initialPage < 0 ? pages - 1 : Math.min(initialPage, pages - 1)
+      setPage(Math.max(0, targetPage))
+      pageRef.current = Math.max(0, targetPage)
     } else if (totalPagesRef.current > 0) {
       const fraction = pageRef.current / totalPagesRef.current
       const restored = Math.min(pages - 1, Math.max(0, Math.round(fraction * pages)))
@@ -86,14 +95,28 @@ export function PaginatedView({
   }, [recalculate])
 
   useEffect(() => {
-    onPageChange?.(page, totalPages, page * pageStride)
-  }, [page, totalPages, pageStride, onPageChange])
+    onPageChange?.(page, totalPages)
+  }, [page, totalPages, onPageChange])
 
-  const goNext = useCallback(
-    () => setPage((p) => Math.min(p + 1, totalPagesRef.current - 1)),
-    []
-  )
-  const goPrev = useCallback(() => setPage((p) => Math.max(p - 1, 0)), [])
+  const goNext = useCallback(() => {
+    setPage((p) => {
+      if (p >= totalPagesRef.current - 1) {
+        onReachChapterEnd?.()
+        return p
+      }
+      return p + 1
+    })
+  }, [onReachChapterEnd])
+
+  const goPrev = useCallback(() => {
+    setPage((p) => {
+      if (p <= 0) {
+        onReachChapterStart?.()
+        return p
+      }
+      return p - 1
+    })
+  }, [onReachChapterStart])
 
   const handleClick = (e: React.MouseEvent) => {
     const rect = containerRef.current?.getBoundingClientRect()
@@ -143,7 +166,10 @@ export function PaginatedView({
       >
         <ReaderContent html={html} prefs={prefs} noHorizontalPadding />
       </div>
-      <div className="absolute bottom-4 left-0 right-0 text-center text-xs opacity-60 pointer-events-none">
+      <div
+        className="absolute bottom-0 left-0 right-0 flex items-center justify-center text-xs opacity-70 pointer-events-none z-10"
+        style={{ height: PAGE_COUNTER_RESERVE }}
+      >
         {page + 1} / {totalPages}
       </div>
     </div>
