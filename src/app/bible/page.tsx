@@ -3,8 +3,7 @@
 import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { BibleReader } from '@/components/BibleReader'
-import { BookSelector } from '@/components/BookSelector'
-import { ChapterSelector } from '@/components/ChapterSelector'
+import { ScriptureSelector, type ScriptureSelectorTab } from '@/components/ScriptureSelector'
 import { useAuth } from '@/components/AuthProvider'
 import { useUserPreferences } from '@/components/UserPreferencesProvider'
 import { progressService } from '@/lib/database'
@@ -39,8 +38,8 @@ function BiblePageInner() {
   const [currentChapter, setCurrentChapter] = useState(0)
   const [focusVerse, setFocusVerse] = useState<number | undefined>(undefined)
   const [isLoading, setIsLoading] = useState(true)
-  const [showBookSelector, setShowBookSelector] = useState(false)
-  const [showChapterSelector, setShowChapterSelector] = useState(false)
+  const [showScriptureSelector, setShowScriptureSelector] = useState(false)
+  const [scriptureSelectorTab, setScriptureSelectorTab] = useState<ScriptureSelectorTab>('book')
   const { user, loading: authLoading } = useAuth()
   const { preferences } = useUserPreferences()
 
@@ -68,12 +67,17 @@ function BiblePageInner() {
     [pathname, router]
   )
 
+  const openScriptureSelector = (tab: ScriptureSelectorTab) => {
+    setScriptureSelectorTab(tab)
+    setShowScriptureSelector(true)
+  }
+
   const handleBookClick = () => {
-    setShowBookSelector(true)
+    openScriptureSelector('book')
   }
 
   const handleChapterClick = () => {
-    setShowChapterSelector(true)
+    openScriptureSelector('chapter')
   }
 
   const handleBookSelect = (book: string) => {
@@ -91,6 +95,11 @@ function BiblePageInner() {
     replaceBibleUrl(currentBook, chapter)
 
     persistReadingProgress(currentBook, chapter)
+  }
+
+  const handleVerseSelect = (verse: number) => {
+    setFocusVerse(verse)
+    replaceBibleUrl(currentBook, currentChapter, verse)
   }
 
   useEffect(() => {
@@ -202,21 +211,16 @@ function BiblePageInner() {
         />
       )}
 
-      {showBookSelector && (
-        <BookSelector
+      {showScriptureSelector && (
+        <ScriptureSelector
           currentBook={currentBook}
-          onBookSelect={handleBookSelect}
-          onClose={() => setShowBookSelector(false)}
-          onOpenChapterSelector={() => setShowChapterSelector(true)}
-        />
-      )}
-
-      {showChapterSelector && (
-        <ChapterSelector
-          book={currentBook}
           currentChapter={currentChapter}
+          currentVerse={focusVerse}
+          initialTab={scriptureSelectorTab}
+          onBookSelect={handleBookSelect}
           onChapterSelect={handleChapterSelect}
-          onClose={() => setShowChapterSelector(false)}
+          onVerseSelect={handleVerseSelect}
+          onClose={() => setShowScriptureSelector(false)}
         />
       )}
     </>
