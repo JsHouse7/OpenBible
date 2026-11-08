@@ -1,0 +1,65 @@
+.literature-room {
+  background-color: #f3eee6;
+  background-image:
+    radial-gradient(ellipse at top, rgba(255, 252, 247, 0.9), transparent 58%),
+    linear-gradient(180deg, rgba(92, 64, 41, 0.04), transparent 28%);
+}
+
+.literature-cover {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 32%);
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 235, 0.16), 0 16px 30px rgba(48, 32, 18, 0.14);
+}
+
+.lit-page {
+  overflow: hidden;
+}
+
+.lit-leaf {
+  transform-origin: left center;
+  transform-style: preserve-3d;
+}
+
+.lit-leaf.is-turning-next {
+  animation: lit-leaf-next 480ms ease forwards;
+}
+
+.lit-leaf.is-turning-prev {
+  animation: lit-leaf-prev 480ms ease forwards;
+}
+
+.lit-slide-next {
+  animation: lit-slide-next 260ms ease forwards;
+}
+
+.lit-slide-prev {
+  animation: lit-slide-prev 260ms ease forwards;
+}
+
+@keyframes lit-leaf-next {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(-78deg); }
+}
+
+@keyframes lit-leaf-prev {
+  from { transform: rotateY(70deg); }
+  to { transform: rotateY(0deg); }
+}
+
+@keyframes lit-slide-next {
+  from { transform: translateX(0); }
+  to { transform: translateX(-18%); }
+}
+
+@keyframes lit-slide-prev {
+  from { transform: translateX(12%); }
+  to { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lit-leaf.is-turning-next,
+  .lit-leaf.is-turning-prev,
+  .lit-slide-next,
+  .lit-slide-prev {
+    animation: none;
+  }
+}

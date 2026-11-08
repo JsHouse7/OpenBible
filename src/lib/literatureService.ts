@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { LiteratureWork } from './literatureParser'
+import { LiteratureLibraryError, normalizeWorkSummary } from './literature/catalog'
 
 // Re-export LiteratureWork for other components
 export type { LiteratureWork }
@@ -21,6 +22,7 @@ export interface LiteratureWorkSummary {
   estimatedReadingTime: number
   filename: string
   dateAdded: string
+  textStatus?: 'ready' | 'incomplete'
 }
 
 export class LiteratureService {
@@ -80,26 +82,23 @@ export class LiteratureService {
    * Load a literature work by ID from Supabase database
    */
   static async loadLiteratureWork(id: string): Promise<LiteratureWork | null> {
-    try {
-      const response = await fetch('/api/literature/load', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-      })
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null
-        }
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-      
-      const result = await response.json()
-      return result.work as LiteratureWork
-    } catch (error) {
-      console.error(`Error loading literature work ${id}:`, error)
-      return null
+    const response = await fetch('/api/literature/load', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    })
+
+    if (response.status === 404) return null
+
+    const body = await response.json().catch(() => ({} as { error?: string; code?: string; work?: LiteratureWork }))
+    if (!response.ok) {
+      throw new LiteratureLibraryError(
+        body.error || 'Failed to load literature work',
+        response.status,
+        body.code || 'WORK_REQUEST_FAILED'
+      )
     }
+    return (body.work ?? null) as LiteratureWork | null
   }
 
   /**
@@ -113,28 +112,23 @@ export class LiteratureService {
    * Load the literature index from Supabase database
    */
   static async loadLiteratureIndex(): Promise<LiteratureIndex> {
-    try {
-      const response = await fetch('/api/literature/list')
-      
-      if (!response.ok) {
-        console.error('Failed to load literature index from database')
-        return {
-          works: [],
-          lastUpdated: new Date().toISOString()
-        }
-      }
-      
-      const result = await response.json()
-      return {
-        works: result.works,
-        lastUpdated: new Date().toISOString()
-      }
-    } catch (error) {
-      console.error('Error loading literature index:', error)
-      return {
-        works: [],
-        lastUpdated: new Date().toISOString()
-      }
+    const response = await fetch('/api/literature/list')
+    const body = await response.json().catch(() => ({})) as { error?: string; code?: string; works?: unknown[] }
+    if (!response.ok) {
+      throw new LiteratureLibraryError(
+        body.error || 'Failed to load literature works',
+        response.status,
+        body.code || 'LIBRARY_REQUEST_FAILED'
+      )
+    }
+    const works: LiteratureWorkSummary[] = []
+    for (const raw of Array.isArray(body.works) ? body.works : []) {
+      const summary = normalizeWorkSummary(raw)
+      if (summary) works.push(summary)
+    }
+    return {
+      works,
+      lastUpdated: new Date().toISOString()
     }
   }
 

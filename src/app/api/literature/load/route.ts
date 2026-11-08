@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createSupabaseAnonClient, missingPublicSupabaseResponse } from '@/lib/supabaseRouteAuth'
 
 export async function POST(request: NextRequest) {
   try {
+    const missing = missingPublicSupabaseResponse()
+    if (missing) {
+      return NextResponse.json(missing, { status: 503 })
+    }
+
     const { id } = await request.json()
     if (!id) {
       return NextResponse.json({ error: 'Work ID is required' }, { status: 400 })
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabase = createSupabaseAnonClient()
+    if (!supabase) {
+      return NextResponse.json(missingPublicSupabaseResponse({ url: '', anonKey: '' }), { status: 503 })
+    }
 
     // Fetch work by id
     const { data: work, error: workError } = await supabase
@@ -73,6 +78,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ work: transformedWork })
   } catch (error) {
     console.error('API: Error in /api/literature/load:', error)
-    return NextResponse.json({ error: 'Failed to load work' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to load work', code: 'WORK_REQUEST_FAILED' }, { status: 500 })
   }
 }
