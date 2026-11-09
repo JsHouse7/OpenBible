@@ -12,6 +12,12 @@ interface PaginatedViewProps {
   prefs: ReaderPreferences
   /** Page index to open on chapter load. Use -1 for the last page. */
   initialPage?: number
+  /**
+   * Direction of a chapter-edge swipe that caused this view to open.
+   * 1 = forward (next chapter), -1 = backward (previous chapter), 0 = no entry animation
+   * (TOC, restore, resize, first open).
+   */
+  chapterEntryDirection?: 1 | -1 | 0
   onPageChange?: (page: number, totalPages: number) => void
   onReachChapterEnd?: () => void
   onReachChapterStart?: () => void
@@ -21,6 +27,7 @@ export function PaginatedView({
   html,
   prefs,
   initialPage = 0,
+  chapterEntryDirection = 0,
   onPageChange,
   onReachChapterEnd,
   onReachChapterStart,
@@ -33,18 +40,62 @@ export function PaginatedView({
   const [columns, setColumns] = useState<1 | 2>(1)
   const [reducedMotion, setReducedMotion] = useState(false)
   const [tilt, setTilt] = useState(0)
+  const [freezeTransform, setFreezeTransform] = useState(true)
+  const [entryNudgePages, setEntryNudgePages] = useState(0)
   const touchStart = useRef({ x: 0, y: 0 })
   const ignoreClick = useRef(false)
   const prevHtmlRef = useRef<string | null>(null)
   const pageRef = useRef(page)
   const totalPagesRef = useRef(totalPages)
   const columnsRef = useRef<1 | 2>(1)
+  const pendingEntryRef = useRef<1 | -1 | null>(null)
+  const entryRanForHtmlRef = useRef<string | null>(null)
 
   pageRef.current = page
   totalPagesRef.current = totalPages
   columnsRef.current = columns
 
   const motion = resolvePageTurn(prefs.pageTurn ?? 'slide', reducedMotion)
+  const motionRef = useRef(motion)
+  motionRef.current = motion
+
+  const snapWithoutTransition = useCallback((apply: () => void) => {
+    setFreezeTransform(true)
+    apply()
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setFreezeTransform(false)
+      })
+    })
+  }, [])
+
+  const playChapterEntry = useCallback((direction: 1 | -1, targetPage: number) => {
+    const motionNow = motionRef.current
+    if (motionNow === 'none') {
+      setEntryNudgePages(0)
+      setPage(targetPage)
+      pageRef.current = targetPage
+      setFreezeTransform(false)
+      return
+    }
+
+    // Park one spread past the destination with transitions off, then ease in.
+    setFreezeTransform(true)
+    setEntryNudgePages(direction > 0 ? 1 : -1)
+    setPage(targetPage)
+    pageRef.current = targetPage
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (motionNow === 'paper') setTilt(direction > 0 ? -12 : 12)
+        setFreezeTransform(false)
+        setEntryNudgePages(0)
+        if (motionNow === 'paper') {
+          window.setTimeout(() => setTilt(0), 40)
+        }
+      })
+    })
+  }, [])
 
   const recalculate = useCallback(() => {
     const container = containerRef.current
@@ -90,24 +141,67 @@ export function PaginatedView({
       prevHtmlRef.current = html
       const requested = initialPage < 0 ? pages - 1 : Math.min(Math.max(0, initialPage), pages - 1)
       const snapped = requested - (requested % nextColumns)
-      setPage(snapped)
-      pageRef.current = snapped
+
+      const fromTurn = pendingEntryRef.current
+      pendingEntryRef.current = null
+      const entryDir: 1 | -1 | 0 =
+        fromTurn ??
+        (chapterEntryDirection === 1 || chapterEntryDirection === -1
+          ? chapterEntryDirection
+          : initialPage < 0
+            ? -1
+            : 0)
+
+      // Only run the entry once per chapter html (resize after entry must not re-animate).
+      const alreadyEntered = entryRanForHtmlRef.current === html
+      if (!alreadyEntered && entryDir !== 0) {
+        entryRanForHtmlRef.current = html
+        playChapterEntry(entryDir, snapped)
+      } else {
+        entryRanForHtmlRef.current = html
+        snapWithoutTransition(() => {
+          setEntryNudgePages(0)
+          setPage(snapped)
+          pageRef.current = snapped
+        })
+      }
     } else if (totalPagesRef.current > 1) {
       const fraction = pageRef.current / totalPagesRef.current
       const restored = Math.min(pages - 1, Math.max(0, Math.round(fraction * pages)))
       const snapped = restored - (restored % nextColumns)
-      setPage(snapped)
-      pageRef.current = snapped
+      // Avoid freezing mid chapter-entry animation when layout merely remeasures.
+      if (snapped !== pageRef.current) {
+        snapWithoutTransition(() => {
+          setPage(snapped)
+          pageRef.current = snapped
+        })
+      }
     } else {
-      setPage((current) => {
-        const clamped = Math.min(current, pages - 1)
-        return clamped - (clamped % nextColumns)
-      })
+      const clamped = Math.min(pageRef.current, pages - 1)
+      const next = clamped - (clamped % nextColumns)
+      if (next !== pageRef.current) {
+        snapWithoutTransition(() => {
+          setPage(next)
+          pageRef.current = next
+        })
+      }
     }
 
     setTotalPages(pages)
     totalPagesRef.current = pages
-  }, [html, prefs.margins, prefs.fontSize, prefs.lineHeight, prefs.fontFamily, prefs.textAlign, prefs.spread, initialPage])
+  }, [
+    html,
+    prefs.margins,
+    prefs.fontSize,
+    prefs.lineHeight,
+    prefs.fontFamily,
+    prefs.textAlign,
+    prefs.spread,
+    initialPage,
+    chapterEntryDirection,
+    playChapterEntry,
+    snapWithoutTransition,
+  ])
 
   useLayoutEffect(() => {
     recalculate()
@@ -134,6 +228,7 @@ export function PaginatedView({
   const turn = useCallback((direction: 1 | -1) => {
     const result = stepPage(pageRef.current, totalPagesRef.current, direction, columnsRef.current)
     if (result.crossedEdge) {
+      pendingEntryRef.current = direction
       if (direction > 0) onReachChapterEnd?.()
       else onReachChapterStart?.()
       return
@@ -198,11 +293,15 @@ export function PaginatedView({
     return () => window.removeEventListener('keydown', onKey)
   }, [turn])
 
-  const transition = motion === 'none'
-    ? 'none'
-    : motion === 'paper'
-      ? 'transform 480ms cubic-bezier(0.2, 0.8, 0.2, 1)'
-      : 'transform 260ms ease-out'
+  const transition =
+    freezeTransform || motion === 'none'
+      ? 'none'
+      : motion === 'paper'
+        ? 'transform 480ms cubic-bezier(0.2, 0.8, 0.2, 1)'
+        : 'transform 260ms ease-out'
+
+  const nudgePx = entryNudgePages * columns * pageStride
+  const translateX = -(page * pageStride) + nudgePx
 
   return (
     <div
@@ -221,8 +320,9 @@ export function PaginatedView({
       <div
         ref={contentRef}
         className="h-full"
+        data-page={page}
         style={{
-          transform: `translateX(-${page * pageStride}px) rotateY(${tilt}deg)`,
+          transform: `translateX(${translateX}px) rotateY(${tilt}deg)`,
           transformOrigin: tilt < 0 ? 'left center' : 'right center',
           transition,
         }}
