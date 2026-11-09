@@ -57,6 +57,8 @@ export function EbookReader({
   const [restored, setRestored] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  /** 1 / -1 when a page-edge swipe opens the next chapter; 0 for TOC/restore/slider. */
+  const chapterEntryDirectionRef = useRef<1 | -1 | 0>(0)
 
   const theme = readerThemeStyles[prefs.theme]
   const chapter = book.chapters[currentChapter]
@@ -145,6 +147,7 @@ export function EbookReader({
       onReachBookEnd?.()
       return
     }
+    chapterEntryDirectionRef.current = 1
     setChapterStartPage(0)
     setCurrentChapter((c) => c + 1)
   }, [currentChapter, book.chapters.length, onReachBookEnd])
@@ -154,11 +157,14 @@ export function EbookReader({
       onReachBookStart?.()
       return
     }
+    chapterEntryDirectionRef.current = -1
     setChapterStartPage(-1)
     setCurrentChapter((c) => c - 1)
   }, [currentChapter, onReachBookStart])
 
+
   const handleBookSlider = (values: number[]) => {
+    chapterEntryDirectionRef.current = 0
     const target = values[0]
     const totalWords = book.chapters.reduce((s, c) => s + c.wordCount, 0)
 
@@ -185,6 +191,7 @@ export function EbookReader({
   }
 
   const handleTocSelect = (index: number) => {
+    chapterEntryDirectionRef.current = 0
     if (book.tocChapters?.length) {
       const entry = book.tocChapters[index]
       if (!entry) return
@@ -318,6 +325,7 @@ export function EbookReader({
             html={chapterHtml}
             prefs={prefs}
             initialPage={chapterStartPage}
+            chapterEntryDirection={chapterEntryDirectionRef.current}
             onPageChange={(page, total) => {
               setChapterPage(page)
               setChapterTotalPages(total)
@@ -413,6 +421,7 @@ export function EbookReader({
         onSelectBookmark={(bm) => {
           setCurrentChapter(bm.chapterIndex)
           if (prefs.readingMode === 'paginated') {
+            chapterEntryDirectionRef.current = 0
             setChapterStartPage(bm.positionAnchor)
           } else {
             setScrollAnchor(bm.positionAnchor)
