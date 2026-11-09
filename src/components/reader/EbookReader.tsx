@@ -19,6 +19,11 @@ import { ScrollView } from './ScrollView'
 import { ReaderSettingsSheet } from './ReaderSettingsSheet'
 import { TocDrawer } from './TocDrawer'
 import { cn } from '@/lib/utils'
+import {
+  computeOverallPageProgress,
+  formatOverallPageLabel,
+  readerLayoutSignature,
+} from '@/lib/reader/overallPageProgress'
 import type {
   EbookReaderProps,
   ReaderBookmark,
@@ -47,7 +52,12 @@ export function EbookReader({
   const [currentChapter, setCurrentChapter] = useState(initialChapterIndex)
   const [chapterPage, setChapterPage] = useState(0)
   const [chapterTotalPages, setChapterTotalPages] = useState(1)
+  const [pageColumns, setPageColumns] = useState<1 | 2>(1)
+  const [measuredChapterPages, setMeasuredChapterPages] = useState<Record<number, number>>({})
+  const [viewport, setViewport] = useState({ width: 1280, height: 800 })
+  const [compactPageLabel, setCompactPageLabel] = useState(false)
   const [chapterStartPage, setChapterStartPage] = useState(0)
+  const layoutSignatureRef = useRef<string>('')
   const [scrollAnchor, setScrollAnchor] = useState(0)
   const [showChrome, setShowChrome] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -91,6 +101,86 @@ export function EbookReader({
       ((wordsBefore + chapterProgress * chWords) / totalWords) * 100
     )
   }, [book, currentChapter, chapter, chapterPage, chapterTotalPages])
+
+  useEffect(() => {
+    const apply = () => {
+      setViewport({ width: window.innerWidth, height: window.innerHeight })
+      setCompactPageLabel(window.innerWidth < 480)
+    }
+    apply()
+    window.addEventListener('resize', apply)
+    return () => window.removeEventListener('resize', apply)
+  }, [])
+
+  const layoutSignature = useMemo(
+    () =>
+      readerLayoutSignature({
+        fontSize: prefs.fontSize,
+        fontFamily: prefs.fontFamily,
+        lineHeight: prefs.lineHeight,
+        margins: prefs.margins,
+        textAlign: prefs.textAlign,
+        spread: prefs.spread ?? 'auto',
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+      }),
+    [
+      prefs.fontSize,
+      prefs.fontFamily,
+      prefs.lineHeight,
+      prefs.margins,
+      prefs.textAlign,
+      prefs.spread,
+      viewport.width,
+      viewport.height,
+    ]
+  )
+
+  useEffect(() => {
+    if (layoutSignatureRef.current && layoutSignatureRef.current !== layoutSignature) {
+      setMeasuredChapterPages({})
+    }
+    layoutSignatureRef.current = layoutSignature
+  }, [layoutSignature])
+
+  useEffect(() => {
+    if (prefs.readingMode !== 'paginated') return
+    if (chapterTotalPages <= 0) return
+    setMeasuredChapterPages((prev) => {
+      if (prev[currentChapter] === chapterTotalPages) return prev
+      return { ...prev, [currentChapter]: chapterTotalPages }
+    })
+  }, [prefs.readingMode, currentChapter, chapterTotalPages])
+
+  const overallPageProgress = useMemo(() => {
+    if (prefs.readingMode !== 'paginated') return null
+    return computeOverallPageProgress({
+      chapters: book.chapters.map((ch) => ({
+        wordCount: ch.wordCount,
+        contentLength: ch.html?.length,
+      })),
+      currentChapter,
+      chapterPage,
+      chapterTotalPages,
+      columns: pageColumns,
+      measuredPages: {
+        ...measuredChapterPages,
+        [currentChapter]: chapterTotalPages,
+      },
+    })
+  }, [
+    prefs.readingMode,
+    book.chapters,
+    currentChapter,
+    chapterPage,
+    chapterTotalPages,
+    pageColumns,
+    measuredChapterPages,
+  ])
+
+  const overallPageLabel = overallPageProgress
+    ? formatOverallPageLabel(overallPageProgress, { compact: compactPageLabel })
+    : null
 
   useEffect(() => {
     if (!loaded || restored) return
@@ -326,9 +416,10 @@ export function EbookReader({
             prefs={prefs}
             initialPage={chapterStartPage}
             chapterEntryDirection={chapterEntryDirectionRef.current}
-            onPageChange={(page, total) => {
+            onPageChange={(page, total, columns) => {
               setChapterPage(page)
               setChapterTotalPages(total)
+              setPageColumns(columns)
             }}
             onReachChapterEnd={goToNextChapter}
             onReachChapterStart={goToPrevChapter}
@@ -352,9 +443,19 @@ export function EbookReader({
         )}
         style={{ backgroundColor: theme.chrome }}
       >
-        <div className="flex items-center gap-3 mb-2 text-xs opacity-70">
-          <span>{Math.round(bookPercent)}%</span>
-          <span className="flex-1 text-center">{footerChapterText}</span>
+        <div className="flex items-center gap-3 mb-2 text-xs opacity-70 tabular-nums">
+          <span className="min-w-[2.75rem]">{Math.round(bookPercent)}%</span>
+          <span className="flex-1 text-center tracking-wide">{footerChapterText}</span>
+          {overallPageLabel ? (
+            <span
+              className="min-w-0 max-w-[48%] shrink text-right leading-snug"
+              title={overallPageProgress?.usesEstimate ? 'Page count includes estimates for unread chapters' : undefined}
+            >
+              {overallPageLabel}
+            </span>
+          ) : (
+            <span className="min-w-[2.75rem]" aria-hidden="true" />
+          )}
         </div>
         <Slider
           value={[bookPercent]}
