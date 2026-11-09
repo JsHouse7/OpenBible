@@ -198,7 +198,7 @@ export function BibleBookReader({
         ? Math.round((loadProgress.loaded / loadProgress.total) * 100)
         : 0
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#f4ecd8] p-6">
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--lit-bg)] text-[var(--lit-body)] p-6">
         <p className="text-sm mb-4 opacity-70">
           Loading {bookName} ({translation})…
         </p>

@@ -53,10 +53,10 @@ export const readerThemeStyles: Record<
     chrome: 'rgba(229,229,229,0.95)',
   },
   black: {
-    bg: '#000000',
-    text: '#d4d4d4',
-    muted: '#a3a3a3',
-    chrome: 'rgba(0,0,0,0.92)',
+    bg: '#16120e',
+    text: '#e8dfd0',
+    muted: '#b8a890',
+    chrome: 'rgba(22,18,14,0.95)',
   },
 }
 

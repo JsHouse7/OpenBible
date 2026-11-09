@@ -8,6 +8,21 @@ import {
 
 const STORAGE_KEY = 'openbible-reader-preferences'
 
+function resolveAppIsDark(): boolean {
+  if (typeof document === 'undefined') return false
+  const root = document.documentElement
+  if (root.classList.contains('dark')) return true
+  if (root.classList.contains('light')) return false
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
+function themeAwareDefaults(): ReaderPreferences {
+  if (resolveAppIsDark()) {
+    return { ...defaultReaderPreferences, theme: 'black' }
+  }
+  return defaultReaderPreferences
+}
+
 export function useReaderPreferences() {
   const [prefs, setPrefs] = useState<ReaderPreferences>(defaultReaderPreferences)
   const [loaded, setLoaded] = useState(false)
@@ -17,9 +32,12 @@ export function useReaderPreferences() {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (raw) {
         setPrefs({ ...defaultReaderPreferences, ...JSON.parse(raw) })
+      } else {
+        // No saved reader theme yet — follow the app's dark mode with a night page.
+        setPrefs(themeAwareDefaults())
       }
     } catch {
-      /* use defaults */
+      setPrefs(themeAwareDefaults())
     }
     setLoaded(true)
   }, [])
@@ -37,8 +55,9 @@ export function useReaderPreferences() {
   }, [])
 
   const resetPrefs = useCallback(() => {
-    setPrefs(defaultReaderPreferences)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultReaderPreferences))
+    const next = themeAwareDefaults()
+    setPrefs(next)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   }, [])
 
   return { prefs, updatePrefs, resetPrefs, loaded }

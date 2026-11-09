@@ -107,13 +107,13 @@ export default function LiteratureLibrary() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f3eee6]">
+    <div className="min-h-screen bg-[var(--lit-bg)] text-[var(--lit-body)]">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
-        <header className="flex flex-col gap-6 border-b border-[#e2d5c3] pb-8 sm:flex-row sm:items-end sm:justify-between">
+        <header className="flex flex-col gap-6 border-b border-[var(--lit-border)] pb-8 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-[#8a5a3a]">Christian letters</p>
-            <h1 className="mt-2 font-playfair text-5xl text-[#241910]">Library</h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-[#5e5348]">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--lit-accent)]">Christian letters</p>
+            <h1 className="mt-2 font-playfair text-5xl text-[var(--lit-ink)]">Library</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--lit-muted)]">
               {status === 'ready'
                 ? `${works.length} ${works.length === 1 ? 'work' : 'works'} on the shelf.`
                 : 'Books, sermons, and devotional writing.'}
@@ -127,7 +127,7 @@ export default function LiteratureLibrary() {
 
         {view.kind === 'list' && continueReading.length > 0 && (
           <section className="mt-8">
-            <h2 className="font-playfair text-2xl text-[#241910]">Continue reading</h2>
+            <h2 className="font-playfair text-2xl text-[var(--lit-ink)]">Continue reading</h2>
             <div className="mt-4 flex gap-4 overflow-x-auto pb-2">
               {continueReading.map((work) => (
                 <Link key={work.id} href={`/literature/${work.id}`} className="w-40 shrink-0">
@@ -139,7 +139,7 @@ export default function LiteratureLibrary() {
                     size="md"
                     className="w-full"
                   />
-                  <p className="mt-2 text-sm text-[#5e5348]">{Math.round(progressMap[work.id]?.percent ?? 0)}% read</p>
+                  <p className="mt-2 text-sm text-[var(--lit-muted)]">{Math.round(progressMap[work.id]?.percent ?? 0)}% read</p>
                 </Link>
               ))}
             </div>
@@ -148,17 +148,17 @@ export default function LiteratureLibrary() {
 
         <div className="mt-8 flex flex-col gap-3 lg:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-[#8a7768]" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-[var(--lit-accent-soft)]" />
             <Input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search title, author, or description"
               aria-label="Search the library"
-              className="min-h-11 border-[#e4d7c6] bg-[#fffdf8] pl-10"
+              className="min-h-11 border-[var(--lit-border-strong)] bg-[var(--lit-surface)] pl-10 text-[var(--lit-ink)] placeholder:text-[var(--lit-muted)]"
             />
           </div>
           <Select value={difficulty} onValueChange={setDifficulty}>
-            <SelectTrigger className="min-h-11 w-full bg-[#fffdf8] lg:w-44" aria-label="Difficulty">
+            <SelectTrigger className="min-h-11 w-full border-[var(--lit-border-strong)] bg-[var(--lit-surface)] text-[var(--lit-ink)] lg:w-44" aria-label="Difficulty">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -169,7 +169,7 @@ export default function LiteratureLibrary() {
             </SelectContent>
           </Select>
           <Select value={author} onValueChange={setAuthor}>
-            <SelectTrigger className="min-h-11 w-full bg-[#fffdf8] lg:w-52" aria-label="Author">
+            <SelectTrigger className="min-h-11 w-full border-[var(--lit-border-strong)] bg-[var(--lit-surface)] text-[var(--lit-ink)] lg:w-52" aria-label="Author">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -178,7 +178,7 @@ export default function LiteratureLibrary() {
             </SelectContent>
           </Select>
           <Select value={sortKey} onValueChange={(value: SortKey) => setSortKey(value)}>
-            <SelectTrigger className="min-h-11 w-full bg-[#fffdf8] lg:w-44" aria-label="Sort">
+            <SelectTrigger className="min-h-11 w-full border-[var(--lit-border-strong)] bg-[var(--lit-surface)] text-[var(--lit-ink)] lg:w-44" aria-label="Sort">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -188,7 +188,7 @@ export default function LiteratureLibrary() {
               <SelectItem value="recent">Recently read</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex overflow-hidden rounded-md border border-[#e4d7c6] bg-[#fffdf8]">
+          <div className="flex overflow-hidden rounded-md border border-[var(--lit-border-strong)] bg-[var(--lit-surface)]">
             <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" className="min-h-11 min-w-11" aria-label="Grid" onClick={() => setViewMode('grid')}>
               <LayoutGrid className="h-4 w-4" />
             </Button>
@@ -198,32 +198,32 @@ export default function LiteratureLibrary() {
           </div>
         </div>
 
-        {actionError && <p className="mt-4 text-sm text-[#8a3b24]">{actionError}</p>}
+        {actionError && <p className="mt-4 text-sm text-[var(--lit-danger)]">{actionError}</p>}
 
         <div className="mt-8">
           {view.kind === 'loading' && (
             <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4" aria-hidden="true">
               {Array.from({ length: 8 }, (_, index) => (
                 <div key={index} className="animate-pulse">
-                  <div className="mx-auto h-52 w-36 rounded-sm bg-[#e7dccb]" />
-                  <div className="mx-auto mt-3 h-4 w-28 rounded bg-[#e7dccb]" />
+                  <div className="mx-auto h-52 w-36 rounded-sm bg-[var(--lit-skeleton)]" />
+                  <div className="mx-auto mt-3 h-4 w-28 rounded bg-[var(--lit-skeleton)]" />
                 </div>
               ))}
             </div>
           )}
 
           {view.kind === 'error' && (
-            <div className="rounded-md border border-[#e7c7b8] bg-[#fff8f4] px-6 py-12 text-center">
-              <h2 className="font-playfair text-3xl text-[#241910]">The shelf did not load</h2>
-              <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-[#5e5348]">{view.message}</p>
+            <div className="rounded-md border border-[var(--lit-error-border)] bg-[var(--lit-error-bg)] px-6 py-12 text-center">
+              <h2 className="font-playfair text-3xl text-[var(--lit-ink)]">The shelf did not load</h2>
+              <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-[var(--lit-muted)]">{view.message}</p>
               <Button className="mt-6" onClick={loadData}>Try again</Button>
             </div>
           )}
 
           {view.kind === 'empty-catalog' && (
             <div className="px-6 py-16 text-center">
-              <BookOpen className="mx-auto h-8 w-8 text-[#8a5a3a]" />
-              <h2 className="mt-4 font-playfair text-3xl">No works are in the catalog yet</h2>
+              <BookOpen className="mx-auto h-8 w-8 text-[var(--lit-accent)]" />
+              <h2 className="mt-4 font-playfair text-3xl text-[var(--lit-ink)]">No works are in the catalog yet</h2>
               <Link href="/literature/admin" className={`${buttonVariants({})} mt-6`}>
                 <Plus className="mr-1 h-4 w-4" />
                 Import a book
@@ -233,7 +233,7 @@ export default function LiteratureLibrary() {
 
           {view.kind === 'empty-filters' && (
             <div className="px-6 py-16 text-center">
-              <h2 className="font-playfair text-3xl">Nothing matches these filters</h2>
+              <h2 className="font-playfair text-3xl text-[var(--lit-ink)]">Nothing matches these filters</h2>
               <Button className="mt-6" variant="outline" onClick={() => {
                 setSearchTerm('')
                 setDifficulty('all')
@@ -250,10 +250,10 @@ export default function LiteratureLibrary() {
                   <article key={work.id} className="group">
                     <Link href={`/literature/${work.id}`} className="block">
                       <BookCover title={work.title} author={work.author} id={work.id} progress={progress} className="mx-auto w-full max-w-[11rem]" />
-                      <h2 className="mt-3 font-playfair text-xl leading-tight text-[#241910]">{work.title}</h2>
+                      <h2 className="mt-3 font-playfair text-xl leading-tight text-[var(--lit-ink)]">{work.title}</h2>
                     </Link>
-                    <p className="mt-1 text-sm text-[#5e5348]">{work.author}{work.year ? ` · ${work.year}` : ''}</p>
-                    {work.description && <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#3f372f]">{work.description}</p>}
+                    <p className="mt-1 text-sm text-[var(--lit-muted)]">{work.author}{work.year ? ` · ${work.year}` : ''}</p>
+                    {work.description && <p className="mt-2 line-clamp-3 text-sm leading-6 text-[var(--lit-body)]">{work.description}</p>}
                     <WorkMeta work={work} progress={progress} canDelete={canManage(work)} onDelete={() => handleDelete(work.id)} />
                   </article>
                 )
@@ -273,10 +273,10 @@ export default function LiteratureLibrary() {
                       </Link>
                       <div className="min-w-0 flex-1">
                         <Link href={`/literature/${work.id}`}>
-                          <h2 className="font-playfair text-2xl text-[#241910]">{work.title}</h2>
+                          <h2 className="font-playfair text-2xl text-[var(--lit-ink)]">{work.title}</h2>
                         </Link>
-                        <p className="text-sm text-[#5e5348]">{work.author}</p>
-                        <p className="mt-1 line-clamp-2 text-sm text-[#3f372f]">{work.description}</p>
+                        <p className="text-sm text-[var(--lit-muted)]">{work.author}</p>
+                        <p className="mt-1 line-clamp-2 text-sm text-[var(--lit-body)]">{work.description}</p>
                         <WorkMeta work={work} progress={progress} canDelete={canManage(work)} onDelete={() => handleDelete(work.id)} />
                       </div>
                     </CardContent>
@@ -303,10 +303,10 @@ function WorkMeta({
   onDelete: () => void
 }) {
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.12em] text-[#8a5a3a]">
+    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.12em] text-[var(--lit-accent)]">
       {work.textStatus === 'incomplete' && <span>Incomplete text</span>}
       {work.wordCount > 0 && (
-        <span className="inline-flex items-center gap-1 normal-case tracking-normal text-[#5e5348]">
+        <span className="inline-flex items-center gap-1 normal-case tracking-normal text-[var(--lit-muted)]">
           <Clock className="h-3.5 w-3.5" />
           {formatReadingTime(work.estimatedReadingTime)}
         </span>
@@ -318,7 +318,7 @@ function WorkMeta({
         <span className="sr-only">Download</span>
       </Button>
       {canDelete && (
-        <Button variant="ghost" size="sm" className="h-8 px-2 text-[#8a3b24]" onClick={onDelete}>
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-[var(--lit-danger)]" onClick={onDelete}>
           <Trash2 className="h-3.5 w-3.5" />
           <span className="sr-only">Delete</span>
         </Button>

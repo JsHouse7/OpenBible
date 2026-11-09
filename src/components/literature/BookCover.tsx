@@ -38,7 +38,7 @@ export function BookCover({
   return (
     <div
       className={cn(
-        'relative flex flex-col justify-between overflow-hidden rounded-sm p-3 text-[#f8f1e6] shadow-md',
+        'relative flex flex-col justify-between overflow-hidden rounded-sm p-3 text-[#f8f1e6] shadow-md ring-1 ring-black/10 dark:shadow-black/40 dark:ring-white/10',
         sizeClasses[size],
         className
       )}
