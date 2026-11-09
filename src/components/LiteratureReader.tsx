@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
 import { LiteratureService, LiteratureWork } from '@/lib/literatureService'
 import { LiteratureEbookReader } from '@/components/reader/LiteratureEbookReader'
+import { LiteratureLibraryError, libraryViewState } from '@/lib/literature/catalog'
 
 interface LiteratureReaderProps {
   workId: string
@@ -20,7 +21,13 @@ export function LiteratureReader({ workId, onClose }: LiteratureReaderProps) {
         if (!w) setError('Work not found')
         else setWork(w)
       })
-      .catch(() => setError('Failed to load work'))
+      .catch((err: unknown) => {
+        if (err instanceof LiteratureLibraryError) {
+          setError(libraryViewState({ status: 'error', code: err.code, works: [], filtered: [] }).message)
+          return
+        }
+        setError('Failed to load work')
+      })
   }, [workId])
 
   if (error) {

@@ -1,6 +1,8 @@
 export type ReaderTheme = 'light' | 'sepia' | 'gray' | 'black'
 export type ReaderMode = 'paginated' | 'scroll'
 export type ReaderTextAlign = 'left' | 'justify'
+export type PageTurnStyle = 'none' | 'slide' | 'paper'
+export type SpreadMode = 'auto' | 'single' | 'spread'
 
 export interface ReaderPreferences {
   fontSize: number
@@ -11,6 +13,8 @@ export interface ReaderPreferences {
   theme: ReaderTheme
   readingMode: ReaderMode
   showChrome: boolean
+  pageTurn: PageTurnStyle
+  spread: SpreadMode
 }
 
 export const defaultReaderPreferences: ReaderPreferences = {
@@ -22,6 +26,8 @@ export const defaultReaderPreferences: ReaderPreferences = {
   theme: 'sepia',
   readingMode: 'paginated',
   showChrome: true,
+  pageTurn: 'slide',
+  spread: 'auto',
 }
 
 export const readerThemeStyles: Record<

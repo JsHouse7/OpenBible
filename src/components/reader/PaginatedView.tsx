@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ReaderContent } from './ReaderContent'
 import { ReaderPreferences } from '@/lib/readerPreferences'
+import { columnCountForViewport, resolvePageTurn, spreadLabel, stepPage } from '@/lib/reader/pageLayout'
 
 const PAGE_COUNTER_RESERVE = 36
 
@@ -26,16 +27,24 @@ export function PaginatedView({
 }: PaginatedViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
-  const [page, setPage] = useState(initialPage)
+  const [page, setPage] = useState(initialPage < 0 ? 0 : initialPage)
   const [totalPages, setTotalPages] = useState(1)
   const [pageStride, setPageStride] = useState(0)
-  const touchStartX = useRef(0)
-  const prevHtmlRef = useRef(html)
+  const [columns, setColumns] = useState<1 | 2>(1)
+  const [reducedMotion, setReducedMotion] = useState(false)
+  const [tilt, setTilt] = useState(0)
+  const touchStart = useRef({ x: 0, y: 0 })
+  const ignoreClick = useRef(false)
+  const prevHtmlRef = useRef<string | null>(null)
   const pageRef = useRef(page)
   const totalPagesRef = useRef(totalPages)
+  const columnsRef = useRef<1 | 2>(1)
 
   pageRef.current = page
   totalPagesRef.current = totalPages
+  columnsRef.current = columns
+
+  const motion = resolvePageTurn(prefs.pageTurn ?? 'slide', reducedMotion)
 
   const recalculate = useCallback(() => {
     const container = containerRef.current
@@ -45,115 +54,165 @@ export function PaginatedView({
     const margins = prefs.margins
     const height = Math.max(1, container.clientHeight - PAGE_COUNTER_RESERVE)
     const outerWidth = container.clientWidth
-    const contentWidth = Math.max(1, outerWidth - margins * 2)
-    const columnGap = margins * 2
-    const stride = contentWidth + columnGap
+    const nextColumns = columnCountForViewport(
+      outerWidth,
+      container.clientHeight,
+      prefs.fontSize,
+      prefs.spread ?? 'auto'
+    )
+    const gap = Math.max(16, margins)
+    const available = Math.max(1, outerWidth - margins * 2)
+    const contentWidth = nextColumns === 2
+      ? Math.max(1, (available - gap) / 2)
+      : available
+    const stride = contentWidth + (nextColumns === 2 ? gap : margins * 2)
 
+    setColumns(nextColumns)
+    columnsRef.current = nextColumns
     setPageStride(stride)
 
     const inner = content.querySelector('.reader-content') as HTMLElement
     if (!inner) return
 
     inner.style.columnWidth = `${contentWidth}px`
-    inner.style.columnGap = `${columnGap}px`
+    inner.style.columnGap = `${nextColumns === 2 ? gap : margins * 2}px`
     inner.style.columnFill = 'auto'
     inner.style.height = `${height}px`
     inner.style.width = `${contentWidth}px`
     inner.style.boxSizing = 'border-box'
 
+    const columnGap = nextColumns === 2 ? gap : margins * 2
     const scrollW = inner.scrollWidth
-    const pages = Math.max(1, Math.round((scrollW + columnGap) / stride))
+    const pages = Math.max(1, Math.round((scrollW + columnGap) / stride) || 1)
 
     const isChapterChange = prevHtmlRef.current !== html
     if (isChapterChange) {
       prevHtmlRef.current = html
-      const targetPage =
-        initialPage < 0 ? pages - 1 : Math.min(initialPage, pages - 1)
-      setPage(Math.max(0, targetPage))
-      pageRef.current = Math.max(0, targetPage)
-    } else if (totalPagesRef.current > 0) {
+      const requested = initialPage < 0 ? pages - 1 : Math.min(Math.max(0, initialPage), pages - 1)
+      const snapped = requested - (requested % nextColumns)
+      setPage(snapped)
+      pageRef.current = snapped
+    } else if (totalPagesRef.current > 1) {
       const fraction = pageRef.current / totalPagesRef.current
       const restored = Math.min(pages - 1, Math.max(0, Math.round(fraction * pages)))
-      setPage(restored)
-      pageRef.current = restored
+      const snapped = restored - (restored % nextColumns)
+      setPage(snapped)
+      pageRef.current = snapped
     } else {
-      setPage((p) => Math.min(p, pages - 1))
+      setPage((current) => {
+        const clamped = Math.min(current, pages - 1)
+        return clamped - (clamped % nextColumns)
+      })
     }
 
     setTotalPages(pages)
     totalPagesRef.current = pages
-  }, [html, prefs.margins, prefs.fontSize, prefs.lineHeight, prefs.fontFamily, prefs.textAlign, initialPage])
+  }, [html, prefs.margins, prefs.fontSize, prefs.lineHeight, prefs.fontFamily, prefs.textAlign, prefs.spread, initialPage])
 
   useLayoutEffect(() => {
     recalculate()
   }, [recalculate])
 
   useEffect(() => {
-    const ro = new ResizeObserver(() => recalculate())
-    if (containerRef.current) ro.observe(containerRef.current)
-    return () => ro.disconnect()
+    const observer = new ResizeObserver(() => recalculate())
+    if (containerRef.current) observer.observe(containerRef.current)
+    return () => observer.disconnect()
   }, [recalculate])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const apply = () => setReducedMotion(media.matches)
+    apply()
+    media.addEventListener('change', apply)
+    return () => media.removeEventListener('change', apply)
+  }, [])
 
   useEffect(() => {
     onPageChange?.(page, totalPages)
   }, [page, totalPages, onPageChange])
 
-  const goNext = useCallback(() => {
-    setPage((p) => {
-      if (p >= totalPagesRef.current - 1) {
-        onReachChapterEnd?.()
-        return p
-      }
-      return p + 1
-    })
-  }, [onReachChapterEnd])
+  const turn = useCallback((direction: 1 | -1) => {
+    const result = stepPage(pageRef.current, totalPagesRef.current, direction, columnsRef.current)
+    if (result.crossedEdge) {
+      if (direction > 0) onReachChapterEnd?.()
+      else onReachChapterStart?.()
+      return
+    }
+    if (motion === 'paper') setTilt(direction > 0 ? -12 : 12)
+    setPage(result.page)
+    pageRef.current = result.page
+    if (motion === 'paper') {
+      window.setTimeout(() => setTilt(0), 40)
+    }
+  }, [motion, onReachChapterEnd, onReachChapterStart])
 
-  const goPrev = useCallback(() => {
-    setPage((p) => {
-      if (p <= 0) {
-        onReachChapterStart?.()
-        return p
-      }
-      return p - 1
-    })
-  }, [onReachChapterStart])
-
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (event: React.MouseEvent) => {
+    if (ignoreClick.current) {
+      ignoreClick.current = false
+      return
+    }
+    const selection = window.getSelection()
+    if (selection && !selection.isCollapsed) return
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
-    const x = e.clientX - rect.left
-    if (x < rect.width * 0.3) goPrev()
-    else if (x > rect.width * 0.7) goNext()
+    const x = event.clientX - rect.left
+    if (x < rect.width * 0.28) {
+      event.stopPropagation()
+      turn(-1)
+    } else if (x > rect.width * 0.72) {
+      event.stopPropagation()
+      turn(1)
+    }
   }
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
+  const handleTouchStart = (event: React.TouchEvent) => {
+    touchStart.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }
   }
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const delta = e.changedTouches[0].clientX - touchStartX.current
-    if (Math.abs(delta) < 50) return
-    if (delta < 0) goNext()
-    else goPrev()
+  const handleTouchEnd = (event: React.TouchEvent) => {
+    const dx = event.changedTouches[0].clientX - touchStart.current.x
+    const dy = event.changedTouches[0].clientY - touchStart.current.y
+    const selection = window.getSelection()
+    if (selection && !selection.isCollapsed) return
+    if (Math.abs(dy) > Math.abs(dx)) return
+    if (Math.abs(dx) < 48) return
+    ignoreClick.current = true
+    event.stopPropagation()
+    turn(dx < 0 ? 1 : -1)
   }
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goNext()
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goPrev()
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      if (event.key === 'ArrowRight' || event.key === 'PageDown') {
+        event.preventDefault()
+        turn(1)
+      }
+      if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+        event.preventDefault()
+        turn(-1)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goNext, goPrev])
+  }, [turn])
+
+  const transition = motion === 'none'
+    ? 'none'
+    : motion === 'paper'
+      ? 'transform 480ms cubic-bezier(0.2, 0.8, 0.2, 1)'
+      : 'transform 260ms ease-out'
 
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full overflow-hidden select-none"
+      className="relative h-full w-full overflow-hidden"
       style={{
         paddingLeft: prefs.margins,
         paddingRight: prefs.margins,
         boxSizing: 'border-box',
+        perspective: motion === 'paper' ? '1400px' : undefined,
       }}
       onClick={handleClick}
       onTouchStart={handleTouchStart}
@@ -161,16 +220,22 @@ export function PaginatedView({
     >
       <div
         ref={contentRef}
-        className="h-full transition-transform duration-300 ease-out"
-        style={{ transform: `translateX(-${page * pageStride}px)` }}
+        className="h-full"
+        style={{
+          transform: `translateX(-${page * pageStride}px) rotateY(${tilt}deg)`,
+          transformOrigin: tilt < 0 ? 'left center' : 'right center',
+          transition,
+        }}
       >
         <ReaderContent html={html} prefs={prefs} noHorizontalPadding />
       </div>
       <div
         className="absolute bottom-0 left-0 right-0 flex items-center justify-center text-xs opacity-70 pointer-events-none z-10"
         style={{ height: PAGE_COUNTER_RESERVE }}
+        aria-live="polite"
       >
-        {page + 1} / {totalPages}
+        {spreadLabel(page, totalPages, columns)}
+        {prefs.spread === 'spread' && columns === 1 ? ' · single page' : ''}
       </div>
     </div>
   )
