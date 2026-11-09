@@ -18,7 +18,7 @@ interface PaginatedViewProps {
    * (TOC, restore, resize, first open).
    */
   chapterEntryDirection?: 1 | -1 | 0
-  onPageChange?: (page: number, totalPages: number) => void
+  onPageChange?: (page: number, totalPages: number, columns: 1 | 2) => void
   onReachChapterEnd?: () => void
   onReachChapterStart?: () => void
 }
@@ -222,8 +222,8 @@ export function PaginatedView({
   }, [])
 
   useEffect(() => {
-    onPageChange?.(page, totalPages)
-  }, [page, totalPages, onPageChange])
+    onPageChange?.(page, totalPages, columns)
+  }, [page, totalPages, columns, onPageChange])
 
   const turn = useCallback((direction: 1 | -1) => {
     const result = stepPage(pageRef.current, totalPagesRef.current, direction, columnsRef.current)
