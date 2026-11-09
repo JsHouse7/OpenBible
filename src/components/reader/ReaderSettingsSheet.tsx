@@ -21,7 +21,7 @@ const themes: { value: ReaderTheme; label: string; swatch: string }[] = [
   { value: 'light', label: 'Light', swatch: '#ffffff' },
   { value: 'sepia', label: 'Sepia', swatch: '#f4ecd8' },
   { value: 'gray', label: 'Gray', swatch: '#e5e5e5' },
-  { value: 'black', label: 'Black', swatch: '#000000' },
+  { value: 'black', label: 'Night', swatch: '#16120e' },
 ]
 
 export function ReaderSettingsSheet({

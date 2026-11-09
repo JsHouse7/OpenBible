@@ -294,6 +294,44 @@ select:focus-visible {
   display: none;  /* Safari and Chrome */
 }
 
+/* Literary library palette (calm paper light / warm night dark) */
+:root {
+  --lit-bg: #f3eee6;
+  --lit-surface: #fffdf8;
+  --lit-border: #e2d5c3;
+  --lit-border-strong: #e4d7c6;
+  --lit-ink: #241910;
+  --lit-body: #3f372f;
+  --lit-muted: #5e5348;
+  --lit-accent: #8a5a3a;
+  --lit-accent-soft: #8a7768;
+  --lit-danger: #8a3b24;
+  --lit-error-bg: #fff8f4;
+  --lit-error-border: #e7c7b8;
+  --lit-skeleton: #e7dccb;
+}
+
+.dark {
+  --lit-bg: #16120e;
+  --lit-surface: #221c16;
+  --lit-border: #3d3228;
+  --lit-border-strong: #4a3d31;
+  --lit-ink: #f3eee6;
+  --lit-body: #d9cfc0;
+  --lit-muted: #b8a890;
+  --lit-accent: #d4a574;
+  --lit-accent-soft: #c4b09a;
+  --lit-danger: #e8a090;
+  --lit-error-bg: #2a1c16;
+  --lit-error-border: #5c3a30;
+  --lit-skeleton: #2e2620;
+}
+
+.dark .glass-effect {
+  background-color: rgba(22, 18, 14, 0.85);
+  border: 1px solid rgba(61, 50, 40, 0.45);
+}
+
 /* Ebook reader */
 .safe-area-top {
   padding-top: max(0.5rem, env(safe-area-inset-top));
