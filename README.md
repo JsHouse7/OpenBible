@@ -75,6 +75,12 @@ NEXT_PUBLIC_APP_NAME=OpenBible
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+The literature library reads `public.works` with the anon key. Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` have to be present. If either is missing, `/api/literature/list` and `/api/literature/load` respond with HTTP 503 and code `SUPABASE_NOT_CONFIGURED`. The library then says the server is not configured. It does not describe that failure as an empty search.
+
+`SUPABASE_SERVICE_ROLE_KEY` is server-only. Do not prefix it with `NEXT_PUBLIC_`, and do not use it to bypass row-level security for catalog reads. Works remain publicly readable under the existing policy. Signed-out readers can open the catalog; saving an account preference still requires a session and returns 401 without one. That 401 is not a catalog error.
+
+On Vercel, set the two public variables for every environment that should show books. This repository does not change those production values.
+
 ### 3. Supabase Setup
 
 1. **Create a new Supabase project** at [supabase.com](https://supabase.com)

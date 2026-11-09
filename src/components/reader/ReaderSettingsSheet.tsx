@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/Button'
-import { ReaderPreferences, ReaderTheme } from '@/lib/readerPreferences'
+import { PageTurnStyle, ReaderPreferences, ReaderTheme, SpreadMode } from '@/lib/readerPreferences'
 import { fontOptions } from '@/hooks/useFonts'
 
 interface ReaderSettingsSheetProps {
@@ -76,6 +76,43 @@ export function ReaderSettingsSheet({
                 <SelectItem value="scroll">Continuous scroll</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Pages</Label>
+            <Select
+              value={prefs.spread ?? 'auto'}
+              onValueChange={(value: SpreadMode) => onUpdate({ spread: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Two pages in landscape, when they fit</SelectItem>
+                <SelectItem value="single">Single page</SelectItem>
+                <SelectItem value="spread">Two-page spread</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Page turn</Label>
+            <Select
+              value={prefs.pageTurn ?? 'slide'}
+              onValueChange={(value: PageTurnStyle) => onUpdate({ pageTurn: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="slide">Slide</SelectItem>
+                <SelectItem value="paper">Paper</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              A system reduced-motion setting keeps the turn instant.
+            </p>
           </div>
 
           <div className="space-y-2">

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { LiteratureWork } from './literatureParser'
+import { LiteratureLibraryError } from './literature/catalog'
 
 // Re-export LiteratureWork for other components
 export type { LiteratureWork }
@@ -41,6 +42,9 @@ function normalizeLiteratureWorkSummary(raw: unknown): LiteratureWorkSummary {
     dateAdded: String(r.dateAdded ?? meta.dateAdded ?? new Date().toISOString()),
     ownerUserId: r.ownerUserId != null ? String(r.ownerUserId) : null,
     slug: r.slug != null ? String(r.slug) : undefined,
+    textStatus: r.textStatus === 'incomplete' || r.textStatus === 'ready'
+      ? r.textStatus
+      : (Number.isFinite(wordCount) && wordCount > 0 ? 'ready' : 'incomplete'),
   }
 }
 
@@ -63,6 +67,7 @@ export interface LiteratureWorkSummary {
   dateAdded: string
   ownerUserId?: string | null
   slug?: string
+  textStatus?: 'ready' | 'incomplete'
 }
 
 export class LiteratureService {
@@ -119,26 +124,23 @@ export class LiteratureService {
    * Load a literature work by ID from Supabase database
    */
   static async loadLiteratureWork(id: string): Promise<LiteratureWork | null> {
-    try {
-      const response = await fetch('/api/literature/load', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-      })
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null
-        }
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-      
-      const result = await response.json()
-      return result.work as LiteratureWork
-    } catch (error) {
-      console.error(`Error loading literature work ${id}:`, error)
-      return null
+    const response = await fetch('/api/literature/load', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    })
+
+    if (response.status === 404) return null
+
+    const body = await response.json().catch(() => ({} as { error?: string; code?: string; work?: LiteratureWork }))
+    if (!response.ok) {
+      throw new LiteratureLibraryError(
+        body.error || 'Failed to load literature work',
+        response.status,
+        body.code || 'WORK_REQUEST_FAILED'
+      )
     }
+    return (body.work ?? null) as LiteratureWork | null
   }
 
   /**
@@ -155,14 +157,16 @@ export class LiteratureService {
     const response = await fetch('/api/literature/list', { cache: 'no-store' })
 
     if (!response.ok) {
-      let detail = `HTTP ${response.status}`
+      let detail = 'Could not load literature list.'
+      let code = 'LIBRARY_REQUEST_FAILED'
       try {
         const errBody = await response.json()
         if (errBody && typeof errBody.error === 'string') detail = errBody.error
+        if (errBody && typeof errBody.code === 'string') code = errBody.code
       } catch {
         /* ignore */
       }
-      throw new Error(detail === `HTTP ${response.status}` ? 'Could not load literature list.' : detail)
+      throw new LiteratureLibraryError(detail, response.status, code)
     }
 
     const result = await response.json()

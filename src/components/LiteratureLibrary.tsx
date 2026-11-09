@@ -1,29 +1,12 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import {
-  Search,
-  BookOpen,
-  Clock,
-  Download,
-  Settings,
-  LayoutGrid,
-  List,
-  Plus,
-  Trash2,
-  ChevronDown,
-} from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/Card'
+import { BookOpen, Clock, Download, LayoutGrid, List, Plus, Search, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/Button'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/input'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   Select,
   SelectContent,
@@ -31,27 +14,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useAuth } from '@/components/AuthProvider'
-import { useFonts } from '@/hooks/useFonts'
-import { cn } from '@/lib/utils'
-import { LiteratureService, LiteratureWorkSummary } from '@/lib/literatureService'
-import { literatureProgressService, LiteratureProgress } from '@/lib/literatureProgressService'
 import { BookCover } from '@/components/literature/BookCover'
+import { useAuth } from '@/components/AuthProvider'
+import { LiteratureLibraryError, libraryViewState } from '@/lib/literature/catalog'
+import { LiteratureService, type LiteratureWorkSummary } from '@/lib/literatureService'
+import { literatureProgressService, type LiteratureProgress } from '@/lib/literatureProgressService'
 
 type ViewMode = 'grid' | 'list'
-type SortKey = 'title' | 'author' | 'recent' | 'progress'
+type SortKey = 'recent' | 'title' | 'author' | 'progress'
 
-const LiteratureLibrary = () => {
+export default function LiteratureLibrary() {
   const { user } = useAuth()
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
-  const [sortKey, setSortKey] = useState<SortKey>('recent')
   const [works, setWorks] = useState<LiteratureWorkSummary[]>([])
   const [progressMap, setProgressMap] = useState<Record<string, LiteratureProgress>>({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const { getUITextClasses, getHeadingClasses } = useFonts()
+  const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading')
+  const [errorCode, setErrorCode] = useState<string | undefined>()
+  const [searchTerm, setSearchTerm] = useState('')
+  const [difficulty, setDifficulty] = useState('all')
+  const [author, setAuthor] = useState('all')
+  const [sortKey, setSortKey] = useState<SortKey>('title')
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -59,355 +42,310 @@ const LiteratureLibrary = () => {
 
   const loadData = async () => {
     try {
-      setLoading(true)
+      setStatus('loading')
+      setErrorCode(undefined)
       const [index, allProgress] = await Promise.all([
         LiteratureService.getLiteratureIndex(),
         literatureProgressService.getAllProgress(),
       ])
       setWorks(index.works)
       const map: Record<string, LiteratureProgress> = {}
-      allProgress.forEach((p) => {
-        map[p.workId] = p
+      allProgress.forEach((progress) => {
+        map[progress.workId] = progress
       })
       setProgressMap(map)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load library')
-    } finally {
-      setLoading(false)
+      setStatus('ready')
+    } catch (error) {
+      setWorks([])
+      setStatus('error')
+      setErrorCode(error instanceof LiteratureLibraryError ? error.code : 'LIBRARY_REQUEST_FAILED')
     }
   }
+
+  const authors = useMemo(
+    () => [...new Set(works.map((work) => work.author).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [works]
+  )
+
+  const filteredWorks = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+    const list = works.filter((work) => {
+      const matchesQuery = !query || [work.title, work.author, work.description].join(' ').toLowerCase().includes(query)
+      const matchesDifficulty = difficulty === 'all' || work.difficulty === difficulty
+      const matchesAuthor = author === 'all' || work.author === author
+      return matchesQuery && matchesDifficulty && matchesAuthor
+    })
+    return [...list].sort((a, b) => compareWorks(a, b, sortKey, progressMap))
+  }, [author, difficulty, progressMap, searchTerm, sortKey, works])
+
+  const view = libraryViewState({ status, code: errorCode, works, filtered: filteredWorks })
+
+  const continueReading = useMemo(() => {
+    return works
+      .filter((work) => {
+        const progress = progressMap[work.id]
+        return progress && progress.percent > 0 && progress.percent < 99
+      })
+      .sort((a, b) =>
+        new Date(progressMap[b.id]?.lastReadAt ?? 0).getTime() -
+        new Date(progressMap[a.id]?.lastReadAt ?? 0).getTime()
+      )
+      .slice(0, 8)
+  }, [progressMap, works])
 
   const canManage = (work: LiteratureWorkSummary) =>
     Boolean(user?.id && work.ownerUserId && work.ownerUserId === user.id)
 
-  const q = searchTerm.toLowerCase()
-
-  const filteredWorks = useMemo(() => {
-    let list = works.filter((work) => {
-      const matchesSearch =
-        work.title.toLowerCase().includes(q) ||
-        work.author.toLowerCase().includes(q) ||
-        work.description.toLowerCase().includes(q)
-      const matchesCategory =
-        selectedCategory === 'all' || work.difficulty === selectedCategory
-      return matchesSearch && matchesCategory
-    })
-
-    list = [...list].sort((a, b) => {
-      switch (sortKey) {
-        case 'title':
-          return a.title.localeCompare(b.title)
-        case 'author':
-          return a.author.localeCompare(b.author)
-        case 'progress': {
-          const pa = progressMap[a.id]?.percent ?? 0
-          const pb = progressMap[b.id]?.percent ?? 0
-          return pb - pa
-        }
-        case 'recent':
-        default: {
-          const da = progressMap[a.id]?.lastReadAt ?? a.dateAdded
-          const db = progressMap[b.id]?.lastReadAt ?? b.dateAdded
-          return new Date(db).getTime() - new Date(da).getTime()
-        }
-      }
-    })
-
-    return list
-  }, [works, q, selectedCategory, sortKey, progressMap])
-
-  const continueReading = useMemo(() => {
-    return works
-      .filter((w) => {
-        const p = progressMap[w.id]
-        return p && p.percent > 0 && p.percent < 99
-      })
-      .sort(
-        (a, b) =>
-          new Date(progressMap[b.id]?.lastReadAt ?? 0).getTime() -
-          new Date(progressMap[a.id]?.lastReadAt ?? 0).getTime()
-      )
-      .slice(0, 6)
-  }, [works, progressMap])
-
-  const formatReadingTime = (minutes: number) => {
-    const h = Math.floor(minutes / 60)
-    const m = minutes % 60
-    return h > 0 ? `${h}h ${m}m` : `${m}m`
-  }
-
   const handleDelete = async (workId: string) => {
-    if (!confirm('Delete this work?')) return
+    if (!window.confirm('Delete this work?')) return
     try {
       await LiteratureService.deleteLiteratureWork(workId)
       await loadData()
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Delete failed')
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'The work could not be deleted.')
     }
   }
 
-  if (loading) {
-    return (
-      <div className="container mx-auto p-6 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-        <p className="mt-4 text-muted-foreground">Loading library...</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="p-6 text-center text-destructive">{error}</CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-7xl">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className={cn('text-3xl font-bold', getHeadingClasses())}>Library</h1>
-          <p className={cn('text-muted-foreground mt-1', getUITextClasses())}>
-            Classic Christian literature — read like an ebook
-          </p>
-        </div>
-        <div className="flex gap-2">
+    <div className="min-h-screen bg-[#f3eee6]">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+        <header className="flex flex-col gap-6 border-b border-[#e2d5c3] pb-8 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.22em] text-[#8a5a3a]">Christian letters</p>
+            <h1 className="mt-2 font-playfair text-5xl text-[#241910]">Library</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-[#5e5348]">
+              {status === 'ready'
+                ? `${works.length} ${works.length === 1 ? 'work' : 'works'} on the shelf.`
+                : 'Books, sermons, and devotional writing.'}
+            </p>
+          </div>
           <Link href="/literature/admin" className={buttonVariants({ variant: 'default' })}>
-            <Plus className="h-4 w-4 mr-1" />
+            <Plus className="mr-1 h-4 w-4" />
             Add book
           </Link>
-          {user && (
-            <Link href="/literature/admin" className={buttonVariants({ variant: 'outline' })}>
-              <Settings className="h-4 w-4" />
-            </Link>
-          )}
-        </div>
-      </div>
+        </header>
 
-      {continueReading.length > 0 && (
-        <section className="mb-10">
-          <h2 className={cn('text-lg font-semibold mb-4', getHeadingClasses())}>
-            Continue reading
-          </h2>
-          <div className="flex gap-4 overflow-x-auto pb-2 snap-x">
-            {continueReading.map((work) => (
-              <Link
-                key={work.id}
-                href={`/literature/${work.id}`}
-                className="snap-start shrink-0 group"
-              >
-                <BookCover
-                  title={work.title}
-                  author={work.author}
-                  id={work.id}
-                  progress={progressMap[work.id]?.percent}
-                  size="md"
-                />
-                <p className="text-xs text-center mt-2 max-w-[8rem] line-clamp-2 group-hover:text-primary">
-                  {Math.round(progressMap[work.id]?.percent ?? 0)}% read
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by title, author, or description..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-full sm:w-40">
-            <SelectValue placeholder="Difficulty" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All levels</SelectItem>
-            <SelectItem value="beginner">Beginner</SelectItem>
-            <SelectItem value="intermediate">Intermediate</SelectItem>
-            <SelectItem value="advanced">Advanced</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={sortKey} onValueChange={(v: SortKey) => setSortKey(v)}>
-          <SelectTrigger className="w-full sm:w-40">
-            <SelectValue placeholder="Sort" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="recent">Recently read</SelectItem>
-            <SelectItem value="title">Title</SelectItem>
-            <SelectItem value="author">Author</SelectItem>
-            <SelectItem value="progress">Progress</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="flex border rounded-lg overflow-hidden">
-          <Button
-            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-            size="icon"
-            onClick={() => setViewMode('grid')}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-            size="icon"
-            onClick={() => setViewMode('list')}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {filteredWorks.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <p className="text-lg font-medium">No books found</p>
-            <p className="text-muted-foreground mt-1 mb-4">
-              {works.length === 0
-                ? 'Import your first book to get started.'
-                : 'Try adjusting your search or filters.'}
-            </p>
-            <Link href="/literature/admin" className={buttonVariants({})}>
-              <Plus className="h-4 w-4 mr-1" />
-              Add a book
-            </Link>
-          </CardContent>
-        </Card>
-      ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {filteredWorks.map((work) => {
-            const prog = progressMap[work.id]?.percent ?? 0
-            return (
-              <div key={work.id} className="group relative">
-                <Link href={`/literature/${work.id}`}>
+        {view.kind === 'list' && continueReading.length > 0 && (
+          <section className="mt-8">
+            <h2 className="font-playfair text-2xl text-[#241910]">Continue reading</h2>
+            <div className="mt-4 flex gap-4 overflow-x-auto pb-2">
+              {continueReading.map((work) => (
+                <Link key={work.id} href={`/literature/${work.id}`} className="w-40 shrink-0">
                   <BookCover
                     title={work.title}
                     author={work.author}
                     id={work.id}
-                    progress={prog}
+                    progress={progressMap[work.id]?.percent}
                     size="md"
-                    className="mx-auto transition-transform group-hover:scale-[1.02]"
+                    className="w-full"
                   />
-                  <div className="mt-2 space-y-1">
-                    <p className="text-sm font-medium line-clamp-2 leading-tight">{work.title}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-1">{work.author}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {formatReadingTime(work.estimatedReadingTime)}
-                      {prog > 0 && (
-                        <span className="text-primary">{Math.round(prog)}%</span>
-                      )}
-                    </div>
-                  </div>
+                  <p className="mt-2 text-sm text-[#5e5348]">{Math.round(progressMap[work.id]?.percent ?? 0)}% read</p>
                 </Link>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 bg-background/80"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => LiteratureService.downloadWorkAsPlainText(work.id)}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download TXT
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => LiteratureService.downloadWorkAsJson(work.id)}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download JSON
-                    </DropdownMenuItem>
-                    {canManage(work) && (
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => handleDelete(work.id)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )
-          })}
+              ))}
+            </div>
+          </section>
+        )}
+
+        <div className="mt-8 flex flex-col gap-3 lg:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-[#8a7768]" />
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search title, author, or description"
+              aria-label="Search the library"
+              className="min-h-11 border-[#e4d7c6] bg-[#fffdf8] pl-10"
+            />
+          </div>
+          <Select value={difficulty} onValueChange={setDifficulty}>
+            <SelectTrigger className="min-h-11 w-full bg-[#fffdf8] lg:w-44" aria-label="Difficulty">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All difficulties</SelectItem>
+              <SelectItem value="beginner">Beginner</SelectItem>
+              <SelectItem value="intermediate">Intermediate</SelectItem>
+              <SelectItem value="advanced">Advanced</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={author} onValueChange={setAuthor}>
+            <SelectTrigger className="min-h-11 w-full bg-[#fffdf8] lg:w-52" aria-label="Author">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All authors</SelectItem>
+              {authors.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={sortKey} onValueChange={(value: SortKey) => setSortKey(value)}>
+            <SelectTrigger className="min-h-11 w-full bg-[#fffdf8] lg:w-44" aria-label="Sort">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="title">Title</SelectItem>
+              <SelectItem value="author">Author</SelectItem>
+              <SelectItem value="progress">Progress</SelectItem>
+              <SelectItem value="recent">Recently read</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex overflow-hidden rounded-md border border-[#e4d7c6] bg-[#fffdf8]">
+            <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" className="min-h-11 min-w-11" aria-label="Grid" onClick={() => setViewMode('grid')}>
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" className="min-h-11 min-w-11" aria-label="List" onClick={() => setViewMode('list')}>
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-2">
-          {filteredWorks.map((work) => {
-            const prog = progressMap[work.id]?.percent ?? 0
-            return (
-              <Card key={work.id} className="hover:bg-muted/30 transition-colors">
-                <CardContent className="p-4 flex items-center gap-4">
-                  <Link href={`/literature/${work.id}`} className="shrink-0">
-                    <BookCover
-                      title={work.title}
-                      author={work.author}
-                      id={work.id}
-                      progress={prog}
-                      size="sm"
-                    />
-                  </Link>
-                  <div className="flex-1 min-w-0">
-                    <Link href={`/literature/${work.id}`}>
-                      <h3 className="font-medium hover:text-primary">{work.title}</h3>
+
+        {actionError && <p className="mt-4 text-sm text-[#8a3b24]">{actionError}</p>}
+
+        <div className="mt-8">
+          {view.kind === 'loading' && (
+            <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4" aria-hidden="true">
+              {Array.from({ length: 8 }, (_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="mx-auto h-52 w-36 rounded-sm bg-[#e7dccb]" />
+                  <div className="mx-auto mt-3 h-4 w-28 rounded bg-[#e7dccb]" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {view.kind === 'error' && (
+            <div className="rounded-md border border-[#e7c7b8] bg-[#fff8f4] px-6 py-12 text-center">
+              <h2 className="font-playfair text-3xl text-[#241910]">The shelf did not load</h2>
+              <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-[#5e5348]">{view.message}</p>
+              <Button className="mt-6" onClick={loadData}>Try again</Button>
+            </div>
+          )}
+
+          {view.kind === 'empty-catalog' && (
+            <div className="px-6 py-16 text-center">
+              <BookOpen className="mx-auto h-8 w-8 text-[#8a5a3a]" />
+              <h2 className="mt-4 font-playfair text-3xl">No works are in the catalog yet</h2>
+              <Link href="/literature/admin" className={`${buttonVariants({})} mt-6`}>
+                <Plus className="mr-1 h-4 w-4" />
+                Import a book
+              </Link>
+            </div>
+          )}
+
+          {view.kind === 'empty-filters' && (
+            <div className="px-6 py-16 text-center">
+              <h2 className="font-playfair text-3xl">Nothing matches these filters</h2>
+              <Button className="mt-6" variant="outline" onClick={() => {
+                setSearchTerm('')
+                setDifficulty('all')
+                setAuthor('all')
+              }}>Clear filters</Button>
+            </div>
+          )}
+
+          {view.kind === 'list' && viewMode === 'grid' && (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+              {filteredWorks.map((work) => {
+                const progress = progressMap[work.id]?.percent ?? 0
+                return (
+                  <article key={work.id} className="group">
+                    <Link href={`/literature/${work.id}`} className="block">
+                      <BookCover title={work.title} author={work.author} id={work.id} progress={progress} className="mx-auto w-full max-w-[11rem]" />
+                      <h2 className="mt-3 font-playfair text-xl leading-tight text-[#241910]">{work.title}</h2>
                     </Link>
-                    <p className="text-sm text-muted-foreground">{work.author}</p>
-                    <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
-                      {work.description}
-                    </p>
-                    <div className="flex gap-2 mt-2 flex-wrap">
-                      <Badge variant="outline">{work.difficulty}</Badge>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatReadingTime(work.estimatedReadingTime)}
-                      </span>
-                      {prog > 0 && (
-                        <Badge variant="secondary">{Math.round(prog)}% read</Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => LiteratureService.downloadWorkAsPlainText(work.id)}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    {canManage(work) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(work.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+                    <p className="mt-1 text-sm text-[#5e5348]">{work.author}{work.year ? ` · ${work.year}` : ''}</p>
+                    {work.description && <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#3f372f]">{work.description}</p>}
+                    <WorkMeta work={work} progress={progress} canDelete={canManage(work)} onDelete={() => handleDelete(work.id)} />
+                  </article>
+                )
+              })}
+            </div>
+          )}
+
+          {view.kind === 'list' && viewMode === 'list' && (
+            <div className="space-y-3">
+              {filteredWorks.map((work) => {
+                const progress = progressMap[work.id]?.percent ?? 0
+                return (
+                  <Card key={work.id}>
+                    <CardContent className="flex items-center gap-4 p-4">
+                      <Link href={`/literature/${work.id}`} className="shrink-0">
+                        <BookCover title={work.title} author={work.author} id={work.id} progress={progress} size="sm" />
+                      </Link>
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/literature/${work.id}`}>
+                          <h2 className="font-playfair text-2xl text-[#241910]">{work.title}</h2>
+                        </Link>
+                        <p className="text-sm text-[#5e5348]">{work.author}</p>
+                        <p className="mt-1 line-clamp-2 text-sm text-[#3f372f]">{work.description}</p>
+                        <WorkMeta work={work} progress={progress} canDelete={canManage(work)} onDelete={() => handleDelete(work.id)} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+function WorkMeta({
+  work,
+  progress,
+  canDelete,
+  onDelete,
+}: {
+  work: LiteratureWorkSummary
+  progress: number
+  canDelete: boolean
+  onDelete: () => void
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.12em] text-[#8a5a3a]">
+      {work.textStatus === 'incomplete' && <span>Incomplete text</span>}
+      {work.wordCount > 0 && (
+        <span className="inline-flex items-center gap-1 normal-case tracking-normal text-[#5e5348]">
+          <Clock className="h-3.5 w-3.5" />
+          {formatReadingTime(work.estimatedReadingTime)}
+        </span>
+      )}
+      <Badge variant="outline">{work.difficulty}</Badge>
+      {progress > 0 && <span className="normal-case tracking-normal">{Math.round(progress)}% read</span>}
+      <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => LiteratureService.downloadWorkAsPlainText(work.id)}>
+        <Download className="h-3.5 w-3.5" />
+        <span className="sr-only">Download</span>
+      </Button>
+      {canDelete && (
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-[#8a3b24]" onClick={onDelete}>
+          <Trash2 className="h-3.5 w-3.5" />
+          <span className="sr-only">Delete</span>
+        </Button>
       )}
     </div>
   )
 }
 
-export default LiteratureLibrary
+function compareWorks(
+  a: LiteratureWorkSummary,
+  b: LiteratureWorkSummary,
+  sortKey: SortKey,
+  progressMap: Record<string, LiteratureProgress>
+) {
+  if (sortKey === 'author') return a.author.localeCompare(b.author) || a.title.localeCompare(b.title)
+  if (sortKey === 'progress') return (progressMap[b.id]?.percent ?? 0) - (progressMap[a.id]?.percent ?? 0)
+  if (sortKey === 'recent') {
+    const aTime = progressMap[a.id]?.lastReadAt ?? a.dateAdded
+    const bTime = progressMap[b.id]?.lastReadAt ?? b.dateAdded
+    return new Date(bTime).getTime() - new Date(aTime).getTime()
+  }
+  return a.title.localeCompare(b.title)
+}
+
+function formatReadingTime(minutes: number) {
+  if (!minutes) return 'Short text'
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
+}
